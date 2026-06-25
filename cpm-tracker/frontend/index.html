@@ -1,0 +1,948 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Shorts Payout Tracker</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="api.js"></script>
+</head>
+<body>
+  <div class="page">
+    <div class="page-header">
+      <div>
+        <a class="back-link" href="../index.html">← Back to zxkie.com</a>
+        <h1>Shorts Payout Tracker</h1>
+        <p id="headerSub">Tracking 0 YouTube channels across your roster</p>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+        <select class="select-control" id="periodFilter">
+          <option value="all">Lifetime</option>
+          <option value="7">Last 7 days</option>
+          <option value="28">Last 28 days</option>
+          <option value="90">Last 90 days</option>
+          <option value="365">Last 365 days</option>
+          <option value="custom">Custom range</option>
+        </select>
+        <div id="customRangeRow" style="display: none; align-items: center; gap: 8px;">
+          <input class="select-control" type="date" id="customStart" />
+          <span style="color: var(--muted);">to</span>
+          <input class="select-control" type="date" id="customEnd" />
+          <button class="btn btn-sm" id="customApplyBtn" type="button">Apply</button>
+        </div>
+        <button class="btn" id="editRateBtn" type="button">Rate: …</button>
+        <button class="btn" id="addClientBtn" type="button">+ Add Client</button>
+        <button class="btn btn-primary" id="addClipperBtn" type="button">+ Add Clipper</button>
+        <button class="btn" id="logoutBtn" type="button">Log Out</button>
+      </div>
+    </div>
+
+    <section class="stats">
+      <div class="stat-card">
+        <div class="label">Clippers</div>
+        <div class="value" id="statClippers">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Shorts Tracked</div>
+        <div class="value" id="statShorts">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="label" id="statViewsLabel">Total Views</div>
+        <div class="value" id="statViews">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Total Paid</div>
+        <div class="value" id="statPaid">$0.00</div>
+      </div>
+    </section>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Clippers</h2>
+        <span style="color: var(--muted); font-size: 12.5px;" id="lastUpdatedLabel"></span>
+      </div>
+      <div id="historyNotice" style="display: none; padding: 10px 18px; background: var(--amber-soft); color: var(--amber); font-size: 12.5px; font-weight: 600; border-bottom: 1px solid var(--border);"></div>
+      <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th data-sort="name">Name</th>
+            <th>Channel(s)</th>
+            <th data-sort="period_short_count" id="shortsColumnHeader">Shorts</th>
+            <th data-sort="period_views" id="viewsColumnHeader">Views</th>
+            <th data-sort="period_earned_cents" id="earnedColumnHeader">Earned</th>
+            <th data-sort="paid_cents">Paid</th>
+            <th class="actions-head">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="clippersTbody"></tbody>
+      </table>
+      </div>
+      <div class="empty-state" id="emptyState" style="display: none;">
+        <h3>No clippers yet</h3>
+        <p>Add your first clipper and link a YouTube or TikTok account to start tracking views.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Clipper Modal -->
+  <div class="modal-overlay" id="addClipperOverlay">
+    <div class="modal-card">
+      <h3>Add Clipper</h3>
+      <p class="sub">Add a clipper and optionally link their YouTube and/or TikTok accounts.</p>
+      <div class="field-label">Name</div>
+      <input id="newClipperName" placeholder="e.g. Jordan" />
+      <div class="field-label">YouTube channel (optional)</div>
+      <input id="newClipperChannel" placeholder="@handle, channel URL, or channel ID" />
+      <div class="field-label">TikTok account (optional)</div>
+      <input id="newClipperTiktok" placeholder="@handle or TikTok profile URL" />
+      <div class="modal-error" id="addClipperError"></div>
+      <div class="modal-actions">
+        <button class="btn" id="addClipperCancel" type="button">Cancel</button>
+        <button class="btn btn-primary" id="addClipperSubmit" type="button">Add Clipper</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Client Modal -->
+  <div class="modal-overlay" id="addClientOverlay">
+    <div class="modal-card">
+      <h3>Add Client</h3>
+      <p class="sub">Clients group clippers by which channels they own. Assign channels to a client from its page.</p>
+      <div class="field-label">Name</div>
+      <input id="newClientName" placeholder="e.g. Edward Solive" />
+      <div class="field-label">Notes (optional)</div>
+      <input id="newClientNotes" placeholder="e.g. contact info, deal terms" />
+      <div class="modal-error" id="addClientError"></div>
+      <div class="modal-actions">
+        <button class="btn" id="addClientCancel" type="button">Cancel</button>
+        <button class="btn btn-primary" id="addClientSubmit" type="button">Add Client</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Channel Modal -->
+  <div class="modal-overlay" id="addChannelOverlay">
+    <div class="modal-card">
+      <h3>Add Account</h3>
+      <p class="sub">Link another tracked account to this clipper.</p>
+      <div class="field-label">Platform</div>
+      <select id="newChannelPlatform" class="select-control" style="width: 100%;">
+        <option value="youtube">YouTube Shorts</option>
+        <option value="tiktok">TikTok</option>
+      </select>
+      <div class="field-label">Account</div>
+      <input id="newChannelInput" placeholder="@handle, channel URL, or channel ID" />
+      <div class="modal-error" id="addChannelError"></div>
+      <div class="modal-actions">
+        <button class="btn" id="addChannelCancel" type="button">Cancel</button>
+        <button class="btn btn-primary" id="addChannelSubmit" type="button">Add Account</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mark Paid Modal -->
+  <div class="modal-overlay" id="markPaidOverlay">
+    <div class="modal-card">
+      <h3>Record Payout</h3>
+      <p class="sub" id="markPaidSub">Mark an amount as paid to this clipper.</p>
+      <div class="field-label">Amount (USD)</div>
+      <input id="markPaidAmount" type="number" min="0" step="0.01" placeholder="0.00" />
+      <div class="field-label">Note (optional)</div>
+      <input id="markPaidNote" placeholder="e.g. Weekly payout via PayPal" />
+      <div class="modal-error" id="markPaidError"></div>
+      <div class="modal-actions">
+        <button class="btn" id="markPaidCancel" type="button">Cancel</button>
+        <button class="btn btn-primary" id="markPaidSubmit" type="button">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Rate Modal -->
+  <div class="modal-overlay" id="editRateOverlay">
+    <div class="modal-card">
+      <h3>Payout Rate</h3>
+      <p class="sub">How much each clip earns per views, applied to every clipper.</p>
+      <div class="field-label">Views</div>
+      <input id="rateViewsInput" type="number" min="1" step="1" placeholder="100000" />
+      <div class="field-label">Amount ($)</div>
+      <input id="rateAmountInput" type="number" min="0.01" step="0.01" placeholder="5.00" />
+      <div class="modal-error" id="editRateError"></div>
+      <div class="modal-actions">
+        <button class="btn" id="editRateCancel" type="button">Cancel</button>
+        <button class="btn btn-primary" id="editRateSubmit" type="button">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <img id="thumbPreview" class="thumb-preview" />
+
+  <script>
+    let clippers = [];
+    let clients = [];
+    let expandedId = null;
+    let sortKey = null;
+    let sortDir = "desc";
+    let activeClipperId = null;
+    let activeClientId = null;
+    const detailCache = new Map();
+    let payoutRate = { rate_views: 100000, rate_cents: 500 };
+    let clipSortKey = "views";
+    let clipSortDir = "desc";
+    const collapsedClients = new Set();
+
+    function sortShorts(shorts) {
+      const copy = [...shorts];
+      copy.sort((a, b) => {
+        let av, bv;
+        if (clipSortKey === "date") {
+          av = a.published_at ? new Date(a.published_at).getTime() : -Infinity;
+          bv = b.published_at ? new Date(b.published_at).getTime() : -Infinity;
+        } else {
+          av = Number(a.latest_views);
+          bv = Number(b.latest_views);
+        }
+        return clipSortDir === "asc" ? av - bv : bv - av;
+      });
+      return copy;
+    }
+
+    function sparklineSvg(history) {
+      if (!history || history.length < 2) return "";
+      const values = history.map((h) => Number(h.views));
+      const min = Math.min(...values);
+      const max = Math.max(...values);
+      const range = max - min || 1;
+      const w = 160, h = 28;
+      const points = values
+        .map((v, i) => {
+          const x = (i / (values.length - 1)) * w;
+          const y = h - ((v - min) / range) * h;
+          return `${x.toFixed(1)},${y.toFixed(1)}`;
+        })
+        .join(" ");
+      return `<svg class="sparkline" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><polyline points="${points}" fill="none" stroke="#4f46e5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    }
+
+    function shortCardHtml(s, channelClippers) {
+      const platformLabel = s.platform === "tiktok" ? "TikTok" : "YouTube";
+      const eligible = s.platform !== "tiktok" ? (channelClippers && channelClippers[s.channel_id]) || [] : [];
+      const assignSelect =
+        eligible.length > 1
+          ? `<select class="assign-select" data-short-id="${esc(s.id)}">
+              <option value="">Shared (all editors)</option>
+              ${eligible
+                .map(
+                  (cl) =>
+                    `<option value="${esc(cl.id)}"${s.assigned_clipper_id === cl.id ? " selected" : ""}>${esc(cl.name)}</option>`
+                )
+                .join("")}
+            </select>`
+          : "";
+      return `
+        <div class="short-card">
+          <img class="short-thumb" src="${esc(s.thumbnail_url || "")}" onerror="this.style.visibility='hidden'" />
+          <div class="short-meta">
+            <div class="short-title"><span class="platform-tag platform-tag-${esc(s.platform || "youtube")}">${platformLabel}</span> ${esc(s.title || "Untitled")}</div>
+            <div class="short-views">${Number(s.latest_views).toLocaleString()} views · ${s.published_at ? `posted ${formatDate(s.published_at)}` : "fetching post date…"}</div>
+            ${sparklineSvg(s.view_history)}
+            ${assignSelect}
+          </div>
+        </div>
+      `;
+    }
+
+    function platformSummaryBarHtml(shorts, rateViews, rateCents) {
+      const yt = shorts.filter((s) => s.platform !== "tiktok");
+      const tt = shorts.filter((s) => s.platform === "tiktok");
+      if (yt.length === 0 || tt.length === 0) return "";
+      const sumViews = (arr) => arr.reduce((sum, s) => sum + Number(s.latest_views), 0);
+      const ytViews = sumViews(yt);
+      const ttViews = sumViews(tt);
+      const ytEarned = Math.floor((ytViews * rateCents) / rateViews);
+      const ttEarned = Math.floor((ttViews * rateCents) / rateViews);
+      return `
+        <div class="platform-summary-bar">
+          <div class="platform-summary-item">
+            <span class="platform-tag platform-tag-youtube">YouTube</span>
+            ${yt.length} clip${yt.length === 1 ? "" : "s"} · ${ytViews.toLocaleString()} views · ${formatMoney(ytEarned)}
+          </div>
+          <div class="platform-summary-item">
+            <span class="platform-tag platform-tag-tiktok">TikTok</span>
+            ${tt.length} clip${tt.length === 1 ? "" : "s"} · ${ttViews.toLocaleString()} views · ${formatMoney(ttEarned)}
+          </div>
+        </div>`;
+    }
+
+    function clipperDetailRowHtml(c) {
+      const detail = detailCache.get(c.id);
+      const periodActive = document.getElementById("periodFilter").value !== "all";
+      let body;
+      if (!detail) {
+        body = `<div style="padding:16px; color:var(--muted);">Loading…</div>`;
+      } else if (!detail.shorts || detail.shorts.length === 0) {
+        body = periodActive
+          ? `<div class="empty-state">
+              <h3>No Shorts in this range</h3>
+              <p>None of this clipper's tracked Shorts were posted in the selected period.${detail.pending_date_count ? ` ${detail.pending_date_count} clip(s) are still pending a post-date lookup and aren't counted yet.` : ""}</p>
+            </div>`
+          : `<div class="empty-state">
+              <h3>No Shorts found yet</h3>
+              <p>This channel hasn't synced any Shorts yet. It can take a few minutes after adding a channel.</p>
+            </div>`;
+      } else {
+        const pendingNote = detail.pending_date_count
+          ? `<div style="padding:0 0 10px; color:var(--amber); font-size:12.5px; font-weight:600;">${detail.pending_date_count} more clip(s) are still pending a post-date lookup and may join this list once that finishes.</div>`
+          : "";
+        const sortBar = `
+          <div class="shorts-sort-bar">
+            <span class="shorts-sort-label">Sort by</span>
+            <select class="select-control select-sm clip-sort-key">
+              <option value="views"${clipSortKey === "views" ? " selected" : ""}>Views</option>
+              <option value="date"${clipSortKey === "date" ? " selected" : ""}>Date</option>
+            </select>
+            <button class="btn btn-sm clip-sort-dir" type="button">${clipSortDir === "desc" ? "High → Low" : "Low → High"}</button>
+          </div>`;
+        body = `${pendingNote}${platformSummaryBarHtml(detail.shorts, detail.rate_views, detail.rate_cents)}${sortBar}<div class="shorts-grid">${sortShorts(detail.shorts).map((s) => shortCardHtml(s, detail.channel_clippers)).join("")}</div>`;
+      }
+      return `<tr class="detail-row"><td colspan="7">${body}</td></tr>`;
+    }
+
+    function channelChipsHtml(channels, tiktokAccounts) {
+      const youtubeChips = (channels || []).map(
+        (ch) => `
+        <span class="channel-chip">
+          ${ch.thumbnail_url ? `<img class="channel-avatar" src="${esc(ch.thumbnail_url)}" />` : ""}
+          ${esc(ch.channel_title || ch.channel_handle || ch.channel_id)}
+        </span>`
+      );
+      const tiktokChips = (tiktokAccounts || []).map(
+        (acc) => `
+        <span class="channel-chip channel-chip-tiktok">
+          ${acc.thumbnail_url ? `<img class="channel-avatar" src="${esc(acc.thumbnail_url)}" />` : ""}
+          ${esc(acc.display_name || acc.username || acc.account_id)}
+        </span>`
+      );
+      return `
+        <div class="account-group">
+          <span class="account-group-label">YT</span>
+          ${youtubeChips.length ? youtubeChips.join("") : `<span class="account-empty">Not linked</span>`}
+        </div>
+        <div class="account-group">
+          <span class="account-group-label account-group-label-tiktok">TikTok</span>
+          ${tiktokChips.length ? tiktokChips.join("") : `<span class="account-empty">Not linked</span>`}
+        </div>
+      `;
+    }
+
+    function platformBreakdownHtml(youtubeValue, tiktokValue, formatter) {
+      youtubeValue = Number(youtubeValue);
+      tiktokValue = Number(tiktokValue);
+      if (youtubeValue === 0 || tiktokValue === 0) return "";
+      return `<div class="platform-breakdown">YT ${formatter(youtubeValue)} · TikTok ${formatter(tiktokValue)}</div>`;
+    }
+
+    function clipperRowHtml(c) {
+      return `
+        <tr class="clipper-row" data-id="${esc(c.id)}">
+          <td>
+            <div class="clipper-name">${esc(c.name)}</div>
+            ${c.notes ? `<div class="clipper-notes">${esc(c.notes)}</div>` : ""}
+          </td>
+          <td>${channelChipsHtml(c.channels, c.tiktok_accounts)}</td>
+          <td>${Number(c.period_short_count).toLocaleString()}</td>
+          <td>
+            ${Number(c.period_views).toLocaleString()}
+            ${platformBreakdownHtml(c.period_views_youtube, c.period_views_tiktok, (v) => v.toLocaleString())}
+          </td>
+          <td class="amount green">
+            ${formatMoney(c.period_earned_cents)}
+            ${platformBreakdownHtml(c.period_earned_cents_youtube, c.period_earned_cents_tiktok, formatMoney)}
+          </td>
+          <td class="amount">${formatMoney(c.paid_cents)}</td>
+          <td>
+            <div class="row-actions">
+              <button class="btn btn-sm add-channel-btn" data-id="${esc(c.id)}" type="button">+ Account</button>
+              <button class="btn btn-sm mark-paid-btn" data-id="${esc(c.id)}" data-name="${esc(c.name)}" type="button">Mark Paid</button>
+              <button class="btn btn-sm btn-danger delete-clipper-btn" data-id="${esc(c.id)}" data-name="${esc(c.name)}" type="button">Remove</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }
+
+    function sortedClippers() {
+      if (!sortKey) return clippers;
+      const copy = [...clippers];
+      copy.sort((a, b) => {
+        let av = a[sortKey];
+        let bv = b[sortKey];
+        if (typeof av === "string") {
+          av = av.toLowerCase();
+          bv = (bv || "").toLowerCase();
+        } else {
+          av = Number(av);
+          bv = Number(bv);
+        }
+        if (av < bv) return sortDir === "asc" ? -1 : 1;
+        if (av > bv) return sortDir === "asc" ? 1 : -1;
+        return 0;
+      });
+      return copy;
+    }
+
+    function clipperClientIds(c) {
+      const ids = new Set();
+      (c.channels || []).forEach((ch) => { if (ch.client_id) ids.add(ch.client_id); });
+      (c.tiktok_accounts || []).forEach((a) => { if (a.client_id) ids.add(a.client_id); });
+      return ids;
+    }
+
+    function groupByClient(list) {
+      const byClient = new Map(clients.map((cl) => [cl.id, []]));
+      const noClient = [];
+      for (const c of list) {
+        const ids = clipperClientIds(c);
+        if (ids.size === 0) {
+          noClient.push(c);
+        } else {
+          for (const id of ids) {
+            if (!byClient.has(id)) byClient.set(id, []);
+            byClient.get(id).push(c);
+          }
+        }
+      }
+      return { byClient, noClient };
+    }
+
+    function clientGroupHeaderHtml(client, count) {
+      const collapsed = collapsedClients.has(client.id);
+      return `
+        <tr class="client-group-header" data-client-id="${esc(client.id)}">
+          <td colspan="7">
+            <div class="client-group-bar">
+              <button class="client-collapse-toggle" type="button" data-client-id="${esc(client.id)}">
+                <span class="client-collapse-arrow">${collapsed ? "▸" : "▾"}</span> ${esc(client.name)}
+              </button>
+              <span class="client-group-stats">
+                ${count} clipper${count === 1 ? "" : "s"} · ${Number(client.short_count).toLocaleString()} shorts · ${Number(client.total_views).toLocaleString()} views · ${formatMoney(client.paid_cents)} paid
+              </span>
+              <a class="btn btn-sm" href="client.html?id=${esc(client.id)}">Open client page →</a>
+            </div>
+          </td>
+        </tr>`;
+    }
+
+    function noClientGroupHtml(noClient) {
+      const collapsed = collapsedClients.has("__none__");
+      let html = `
+        <tr class="client-group-header client-group-header-none">
+          <td colspan="7">
+            <div class="client-group-bar">
+              <button class="client-collapse-toggle" type="button" data-client-id="__none__">
+                <span class="client-collapse-arrow">${collapsed ? "▸" : "▾"}</span> No Client
+              </button>
+              <span class="client-group-stats">${noClient.length} clipper${noClient.length === 1 ? "" : "s"} not yet assigned to a client</span>
+            </div>
+          </td>
+        </tr>`;
+      if (!collapsed) {
+        html += noClient.map((c) => clipperRowHtml(c) + (expandedId === c.id ? clipperDetailRowHtml(c) : "")).join("");
+      }
+      return html;
+    }
+
+    function renderTable() {
+      const list = sortedClippers();
+      document.getElementById("emptyState").style.display = list.length === 0 ? "block" : "none";
+      const tbody = document.getElementById("clippersTbody");
+
+      if (clients.length === 0) {
+        tbody.innerHTML = list
+          .map((c) => clipperRowHtml(c) + (expandedId === c.id ? clipperDetailRowHtml(c) : ""))
+          .join("");
+        return;
+      }
+
+      const { byClient, noClient } = groupByClient(list);
+      let html = "";
+      for (const client of clients) {
+        const group = byClient.get(client.id) || [];
+        html += clientGroupHeaderHtml(client, group.length);
+        if (!collapsedClients.has(client.id)) {
+          html += group.map((c) => clipperRowHtml(c) + (expandedId === c.id ? clipperDetailRowHtml(c) : "")).join("");
+        }
+      }
+      if (noClient.length > 0) {
+        html += noClientGroupHtml(noClient);
+      }
+      tbody.innerHTML = html;
+    }
+
+    const PERIOD_LABELS = {
+      all: "Total Views",
+      7: "Views (Last 7 Days)",
+      28: "Views (Last 28 Days)",
+      90: "Views (Last 90 Days)",
+      365: "Views (Last 365 Days)",
+      custom: "Views (Custom Range)",
+    };
+
+    function currentPeriodQuery() {
+      const period = document.getElementById("periodFilter").value;
+      if (period === "custom") {
+        const start = document.getElementById("customStart").value;
+        const end = document.getElementById("customEnd").value;
+        if (!start || !end) return null;
+        return `?period=custom&start=${start}&end=${end}`;
+      }
+      if (period === "all") return "";
+      return `?period=${period}`;
+    }
+
+    function updateStats() {
+      const totalShorts = clippers.reduce((sum, c) => sum + Number(c.short_count), 0);
+      const periodViews = clippers.reduce((sum, c) => sum + Number(c.period_views), 0);
+      const totalPaid = clippers.reduce((sum, c) => sum + Number(c.paid_cents), 0);
+      const totalChannels = clippers.reduce((sum, c) => sum + (c.channels ? c.channels.length : 0), 0);
+      const totalTiktok = clippers.reduce((sum, c) => sum + (c.tiktok_accounts ? c.tiktok_accounts.length : 0), 0);
+
+      document.getElementById("statClippers").textContent = clippers.length.toLocaleString();
+      document.getElementById("statShorts").textContent = totalShorts.toLocaleString();
+      document.getElementById("statViews").textContent = periodViews.toLocaleString();
+      document.getElementById("statPaid").textContent = formatMoney(totalPaid);
+      document.getElementById("headerSub").textContent =
+        `Tracking ${totalChannels} YouTube channel${totalChannels === 1 ? "" : "s"} and ${totalTiktok} TikTok account${totalTiktok === 1 ? "" : "s"} across your roster`;
+
+      const periodValue = document.getElementById("periodFilter").value;
+      const periodLabel = PERIOD_LABELS[periodValue] || "Total Views";
+      document.getElementById("statViewsLabel").textContent = periodLabel;
+
+      const notice = document.getElementById("historyNotice");
+      const anyMissingDates =
+        periodValue !== "all" &&
+        clippers.some((c) => (c.channels.length > 0 || (c.tiktok_accounts && c.tiktok_accounts.length > 0)) && !c.has_history);
+      if (anyMissingDates) {
+        notice.style.display = "block";
+        notice.textContent =
+          "Still fetching post dates for some clips in the background — period totals may be undercounted until that finishes (new clippers with lots of Shorts can take a while).";
+      } else {
+        notice.style.display = "none";
+      }
+    }
+
+    async function fetchClients(query) {
+      try {
+        clients = await apiFetch(`/api/clients${query}`);
+      } catch (err) {
+        console.error("Failed to load clients:", err.message);
+      }
+    }
+
+    async function loadClippers({ silent } = {}) {
+      try {
+        const query = currentPeriodQuery();
+        if (query === null) return;
+        await fetchClients(query);
+        clippers = await apiFetch(`/api/clippers${query}`);
+        updateStats();
+        renderTable();
+        document.getElementById("lastUpdatedLabel").textContent = `Updated ${new Date().toLocaleTimeString()}`;
+
+        if (expandedId) {
+          const detail = await apiFetch(`/api/clippers/${expandedId}${query}`);
+          detailCache.set(expandedId, detail);
+          renderTable();
+        }
+      } catch (err) {
+        if (!silent) console.error("Failed to load clippers:", err.message);
+      }
+    }
+
+    document.getElementById("periodFilter").addEventListener("change", (e) => {
+      detailCache.clear();
+      const customRow = document.getElementById("customRangeRow");
+      if (e.target.value === "custom") {
+        customRow.style.display = "flex";
+        if (!document.getElementById("customStart").value) {
+          const today = new Date();
+          const weekAgo = new Date(today.getTime() - 7 * 86400000);
+          document.getElementById("customStart").value = weekAgo.toISOString().slice(0, 10);
+          document.getElementById("customEnd").value = today.toISOString().slice(0, 10);
+        }
+        loadClippers();
+      } else {
+        customRow.style.display = "none";
+        loadClippers();
+      }
+    });
+    document.getElementById("customApplyBtn").addEventListener("click", () => {
+      detailCache.clear();
+      loadClippers();
+    });
+
+    async function toggleExpand(id) {
+      if (expandedId === id) {
+        expandedId = null;
+        renderTable();
+        return;
+      }
+      expandedId = id;
+      renderTable();
+      if (!detailCache.has(id)) {
+        try {
+          const query = currentPeriodQuery() || "";
+          const detail = await apiFetch(`/api/clippers/${id}${query}`);
+          detailCache.set(id, detail);
+        } catch (err) {
+          console.error("Failed to load clipper detail:", err.message);
+        }
+        renderTable();
+      }
+    }
+
+    document.getElementById("clippersTbody").addEventListener("click", (e) => {
+      const collapseBtn = e.target.closest(".client-collapse-toggle");
+      if (collapseBtn) {
+        e.stopPropagation();
+        const id = collapseBtn.dataset.clientId;
+        if (collapsedClients.has(id)) collapsedClients.delete(id);
+        else collapsedClients.add(id);
+        renderTable();
+        return;
+      }
+      const addBtn = e.target.closest(".add-channel-btn");
+      if (addBtn) {
+        e.stopPropagation();
+        openAddChannelModal(addBtn.dataset.id);
+        return;
+      }
+      const payBtn = e.target.closest(".mark-paid-btn");
+      if (payBtn) {
+        e.stopPropagation();
+        openMarkPaidModal(payBtn.dataset.id, payBtn.dataset.name);
+        return;
+      }
+      const delBtn = e.target.closest(".delete-clipper-btn");
+      if (delBtn) {
+        e.stopPropagation();
+        deleteClipper(delBtn.dataset.id, delBtn.dataset.name);
+        return;
+      }
+      const sortDirBtn = e.target.closest(".clip-sort-dir");
+      if (sortDirBtn) {
+        e.stopPropagation();
+        clipSortDir = clipSortDir === "desc" ? "asc" : "desc";
+        renderTable();
+        return;
+      }
+      const row = e.target.closest(".clipper-row");
+      if (row) toggleExpand(row.dataset.id);
+    });
+
+    document.getElementById("clippersTbody").addEventListener("change", async (e) => {
+      const sortKeySelect = e.target.closest(".clip-sort-key");
+      if (sortKeySelect) {
+        clipSortKey = sortKeySelect.value;
+        renderTable();
+        return;
+      }
+      const select = e.target.closest(".assign-select");
+      if (!select) return;
+      const shortId = select.dataset.shortId;
+      const clipperId = select.value || null;
+      try {
+        await apiFetch(`/api/shorts/${shortId}/assign`, {
+          method: "PATCH",
+          body: JSON.stringify({ clipper_id: clipperId }),
+        });
+        detailCache.clear();
+        await loadClippers();
+      } catch (err) {
+        alert(`Failed to assign clip: ${err.message}`);
+      }
+    });
+
+    const thumbPreview = document.getElementById("thumbPreview");
+    document.getElementById("clippersTbody").addEventListener(
+      "mouseover",
+      (e) => {
+        const thumb = e.target.closest(".short-thumb");
+        if (!thumb || !thumb.src) return;
+        const rect = thumb.getBoundingClientRect();
+        const previewW = 220;
+        const previewH = 293;
+        let left = rect.right + 10;
+        if (left + previewW > window.innerWidth) left = rect.left - previewW - 10;
+        let top = rect.top + rect.height / 2 - previewH / 2;
+        top = Math.max(8, Math.min(top, window.innerHeight - previewH - 8));
+        thumbPreview.src = thumb.src;
+        thumbPreview.style.left = `${left}px`;
+        thumbPreview.style.top = `${top}px`;
+        thumbPreview.classList.add("open");
+      },
+      true
+    );
+    document.getElementById("clippersTbody").addEventListener(
+      "mouseout",
+      (e) => {
+        const thumb = e.target.closest(".short-thumb");
+        if (!thumb) return;
+        thumbPreview.classList.remove("open");
+      },
+      true
+    );
+
+    document.querySelector("thead").addEventListener("click", (e) => {
+      const th = e.target.closest("th[data-sort]");
+      if (!th) return;
+      const key = th.dataset.sort;
+      if (sortKey === key) {
+        sortDir = sortDir === "asc" ? "desc" : "asc";
+      } else {
+        sortKey = key;
+        sortDir = "desc";
+      }
+      renderTable();
+    });
+
+    async function deleteClipper(id, name) {
+      if (!confirm(`Remove ${name}? This cannot be undone.`)) return;
+      try {
+        await apiFetch(`/api/clippers/${id}`, { method: "DELETE" });
+        detailCache.delete(id);
+        if (expandedId === id) expandedId = null;
+        await loadClippers();
+      } catch (err) {
+        console.error("Failed to remove clipper:", err.message);
+      }
+    }
+
+    // Add Clipper modal
+    const addClipperOverlay = document.getElementById("addClipperOverlay");
+    document.getElementById("addClipperBtn").addEventListener("click", () => {
+      document.getElementById("newClipperName").value = "";
+      document.getElementById("newClipperChannel").value = "";
+      document.getElementById("newClipperTiktok").value = "";
+      document.getElementById("addClipperError").style.display = "none";
+      addClipperOverlay.classList.add("open");
+    });
+    document.getElementById("addClipperCancel").addEventListener("click", () => {
+      addClipperOverlay.classList.remove("open");
+    });
+    document.getElementById("addClipperSubmit").addEventListener("click", async () => {
+      const name = document.getElementById("newClipperName").value.trim();
+      const channelInput = document.getElementById("newClipperChannel").value.trim();
+      const tiktokInput = document.getElementById("newClipperTiktok").value.trim();
+      const errorBox = document.getElementById("addClipperError");
+      if (!name) {
+        errorBox.textContent = "Name is required.";
+        errorBox.style.display = "block";
+        return;
+      }
+      try {
+        const clipper = await apiFetch("/api/clippers", {
+          method: "POST",
+          body: JSON.stringify({ name }),
+        });
+        if (channelInput) {
+          try {
+            await apiFetch(`/api/clippers/${clipper.id}/channels`, {
+              method: "POST",
+              body: JSON.stringify({ input: channelInput }),
+            });
+          } catch (err) {
+            console.error("Channel lookup failed:", err.message);
+          }
+        }
+        if (tiktokInput) {
+          try {
+            await apiFetch(`/api/clippers/${clipper.id}/tiktok-accounts`, {
+              method: "POST",
+              body: JSON.stringify({ input: tiktokInput }),
+            });
+          } catch (err) {
+            console.error("TikTok lookup failed:", err.message);
+          }
+        }
+        addClipperOverlay.classList.remove("open");
+        await loadClippers();
+      } catch (err) {
+        errorBox.textContent = err.message || "Failed to add clipper.";
+        errorBox.style.display = "block";
+      }
+    });
+
+    // Add Client modal
+    const addClientOverlay = document.getElementById("addClientOverlay");
+    document.getElementById("addClientBtn").addEventListener("click", () => {
+      document.getElementById("newClientName").value = "";
+      document.getElementById("newClientNotes").value = "";
+      document.getElementById("addClientError").style.display = "none";
+      addClientOverlay.classList.add("open");
+    });
+    document.getElementById("addClientCancel").addEventListener("click", () => {
+      addClientOverlay.classList.remove("open");
+    });
+    document.getElementById("addClientSubmit").addEventListener("click", async () => {
+      const name = document.getElementById("newClientName").value.trim();
+      const notes = document.getElementById("newClientNotes").value.trim();
+      const errorBox = document.getElementById("addClientError");
+      if (!name) {
+        errorBox.textContent = "Name is required.";
+        errorBox.style.display = "block";
+        return;
+      }
+      try {
+        await apiFetch("/api/clients", {
+          method: "POST",
+          body: JSON.stringify({ name, notes: notes || null }),
+        });
+        addClientOverlay.classList.remove("open");
+        await loadClippers();
+      } catch (err) {
+        errorBox.textContent = err.message || "Failed to add client.";
+        errorBox.style.display = "block";
+      }
+    });
+
+    // Add Channel modal
+    const addChannelOverlay = document.getElementById("addChannelOverlay");
+    function openAddChannelModal(clipperId) {
+      activeClipperId = clipperId;
+      document.getElementById("newChannelInput").value = "";
+      document.getElementById("newChannelPlatform").value = "youtube";
+      document.getElementById("addChannelError").style.display = "none";
+      addChannelOverlay.classList.add("open");
+    }
+    document.getElementById("newChannelPlatform").addEventListener("change", (e) => {
+      document.getElementById("newChannelInput").placeholder =
+        e.target.value === "tiktok" ? "@handle or TikTok profile URL" : "@handle, channel URL, or channel ID";
+    });
+    document.getElementById("addChannelCancel").addEventListener("click", () => {
+      addChannelOverlay.classList.remove("open");
+    });
+    document.getElementById("addChannelSubmit").addEventListener("click", async () => {
+      const input = document.getElementById("newChannelInput").value.trim();
+      const platform = document.getElementById("newChannelPlatform").value;
+      const errorBox = document.getElementById("addChannelError");
+      if (!input) {
+        errorBox.textContent = "Enter a handle, URL, or ID.";
+        errorBox.style.display = "block";
+        return;
+      }
+      try {
+        const path = platform === "tiktok" ? "tiktok-accounts" : "channels";
+        await apiFetch(`/api/clippers/${activeClipperId}/${path}`, {
+          method: "POST",
+          body: JSON.stringify({ input }),
+        });
+        detailCache.delete(activeClipperId);
+        addChannelOverlay.classList.remove("open");
+        await loadClippers();
+      } catch (err) {
+        errorBox.textContent = err.message || "Failed to add account.";
+        errorBox.style.display = "block";
+      }
+    });
+
+    // Mark Paid modal
+    const markPaidOverlay = document.getElementById("markPaidOverlay");
+    function openMarkPaidModal(clipperId, name) {
+      activeClipperId = clipperId;
+      document.getElementById("markPaidSub").textContent = `Mark an amount as paid to ${name}.`;
+      document.getElementById("markPaidAmount").value = "";
+      document.getElementById("markPaidNote").value = "";
+      document.getElementById("markPaidError").style.display = "none";
+      markPaidOverlay.classList.add("open");
+    }
+    document.getElementById("markPaidCancel").addEventListener("click", () => {
+      markPaidOverlay.classList.remove("open");
+    });
+    document.getElementById("markPaidSubmit").addEventListener("click", async () => {
+      const amount = parseFloat(document.getElementById("markPaidAmount").value);
+      const note = document.getElementById("markPaidNote").value.trim();
+      const errorBox = document.getElementById("markPaidError");
+      if (!amount || amount <= 0) {
+        errorBox.textContent = "Enter a valid amount greater than $0.";
+        errorBox.style.display = "block";
+        return;
+      }
+      try {
+        await apiFetch("/api/payouts", {
+          method: "POST",
+          body: JSON.stringify({ clipper_id: activeClipperId, amount_cents: Math.round(amount * 100), note: note || null }),
+        });
+        markPaidOverlay.classList.remove("open");
+        await loadClippers();
+      } catch (err) {
+        errorBox.textContent = err.message || "Failed to record payout.";
+        errorBox.style.display = "block";
+      }
+    });
+
+    // Payout rate
+    function renderRateButton() {
+      const dollars = (payoutRate.rate_cents / 100).toFixed(2);
+      document.getElementById("editRateBtn").textContent =
+        `Rate: $${dollars} / ${Number(payoutRate.rate_views).toLocaleString()} views`;
+    }
+    async function fetchRate() {
+      try {
+        payoutRate = await apiFetch("/api/settings");
+        renderRateButton();
+      } catch (err) {
+        console.error("Failed to load rate:", err.message);
+      }
+    }
+
+    const editRateOverlay = document.getElementById("editRateOverlay");
+    document.getElementById("editRateBtn").addEventListener("click", () => {
+      document.getElementById("rateViewsInput").value = payoutRate.rate_views;
+      document.getElementById("rateAmountInput").value = (payoutRate.rate_cents / 100).toFixed(2);
+      document.getElementById("editRateError").style.display = "none";
+      editRateOverlay.classList.add("open");
+    });
+    document.getElementById("editRateCancel").addEventListener("click", () => {
+      editRateOverlay.classList.remove("open");
+    });
+    document.getElementById("editRateSubmit").addEventListener("click", async () => {
+      const views = parseInt(document.getElementById("rateViewsInput").value, 10);
+      const amount = parseFloat(document.getElementById("rateAmountInput").value);
+      const errorBox = document.getElementById("editRateError");
+      if (!views || views <= 0) {
+        errorBox.textContent = "Enter a valid number of views greater than 0.";
+        errorBox.style.display = "block";
+        return;
+      }
+      if (!amount || amount <= 0) {
+        errorBox.textContent = "Enter a valid amount greater than $0.";
+        errorBox.style.display = "block";
+        return;
+      }
+      try {
+        payoutRate = await apiFetch("/api/settings", {
+          method: "PATCH",
+          body: JSON.stringify({ rate_views: views, rate_cents: Math.round(amount * 100) }),
+        });
+        renderRateButton();
+        editRateOverlay.classList.remove("open");
+        detailCache.clear();
+        await loadClippers();
+      } catch (err) {
+        errorBox.textContent = err.message || "Failed to update rate.";
+        errorBox.style.display = "block";
+      }
+    });
+
+    document.getElementById("logoutBtn").addEventListener("click", async () => {
+      await fetch("/api/logout", { method: "POST" });
+      window.location.href = "/login.html";
+    });
+
+    fetchRate();
+    loadClippers();
+    setInterval(() => loadClippers({ silent: true }), 45000);
+  </script>
+</body>
+</html>

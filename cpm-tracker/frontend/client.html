@@ -1,0 +1,559 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Client — Shorts Payout Tracker</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="api.js"></script>
+</head>
+<body>
+  <div class="page">
+    <div class="page-header">
+      <div>
+        <a class="back-link" id="dashboardLink" href="index.html" style="display: none;">← Back to dashboard</a>
+        <a class="back-link" href="../index.html">← Back to zxkie.com</a>
+        <h1 id="clientName">Loading…</h1>
+        <p id="clientNotes"></p>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+        <select class="select-control" id="periodFilter">
+          <option value="all">Lifetime</option>
+          <option value="7">Last 7 days</option>
+          <option value="28">Last 28 days</option>
+          <option value="90">Last 90 days</option>
+          <option value="365">Last 365 days</option>
+          <option value="custom">Custom range</option>
+        </select>
+        <div id="customRangeRow" style="display: none; align-items: center; gap: 8px;">
+          <input class="select-control" type="date" id="customStart" />
+          <span style="color: var(--muted);">to</span>
+          <input class="select-control" type="date" id="customEnd" />
+          <button class="btn btn-sm" id="customApplyBtn" type="button">Apply</button>
+        </div>
+        <button class="btn" id="editRateBtn" type="button">Rate: …</button>
+        <button class="btn" id="editClientBtn" type="button">Edit</button>
+        <button class="btn btn-danger" id="deleteClientBtn" type="button">Delete</button>
+        <button class="btn" id="logoutBtn" type="button">Log Out</button>
+      </div>
+    </div>
+
+    <div id="historyNotice" style="display: none; margin: 0 0 16px; padding: 10px 14px; background: var(--amber-soft); color: var(--amber); font-size: 12.5px; font-weight: 600; border-radius: 8px;"></div>
+
+    <section class="stats">
+      <div class="stat-card">
+        <div class="label">Clippers</div>
+        <div class="value" id="statClippers">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Shorts Tracked</div>
+        <div class="value" id="statShorts">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="label" id="statViewsLabel">Total Views</div>
+        <div class="value" id="statViews">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Total Paid</div>
+        <div class="value" id="statPaid">$0.00</div>
+      </div>
+    </section>
+
+    <div class="panel" style="margin-bottom: 20px;">
+      <div class="panel-head">
+        <h2>Channels</h2>
+        <div id="channelAssignControls" style="display: flex; gap: 8px; align-items: center;">
+          <select class="select-control" id="channelPoolSelect"></select>
+          <button class="btn btn-sm btn-primary" id="assignChannelBtn" type="button">Assign</button>
+        </div>
+      </div>
+      <div id="channelsList" style="padding: 14px 18px;"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Clippers</h2>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Channel(s)</th>
+              <th>Shorts</th>
+              <th>Views</th>
+              <th>Earned</th>
+              <th>Paid</th>
+              <th class="actions-head" id="actionsHeadCell">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="clippersTbody"></tbody>
+        </table>
+      </div>
+      <div class="empty-state" id="emptyState" style="display: none;">
+        <h3>No clippers yet</h3>
+        <p>No clipper is linked to a channel owned by this client yet.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Rate Modal -->
+  <div class="modal-overlay" id="editRateOverlay">
+    <div class="modal-card">
+      <h3>Payout Rate</h3>
+      <p class="sub">How much each clip earns per views, applied to every clipper.</p>
+      <div class="field-label">Views</div>
+      <input id="rateViewsInput" type="number" min="1" step="1" placeholder="100000" />
+      <div class="field-label">Amount ($)</div>
+      <input id="rateAmountInput" type="number" min="0.01" step="0.01" placeholder="5.00" />
+      <div class="modal-error" id="editRateError"></div>
+      <div class="modal-actions">
+        <button class="btn" id="editRateCancel" type="button">Cancel</button>
+        <button class="btn btn-primary" id="editRateSubmit" type="button">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Client Modal -->
+  <div class="modal-overlay" id="editClientOverlay">
+    <div class="modal-card">
+      <h3>Edit Client</h3>
+      <div class="field-label">Name</div>
+      <input id="editClientName" />
+      <div class="field-label">Notes</div>
+      <input id="editClientNotes" />
+      <div class="modal-error" id="editClientError"></div>
+      <div class="modal-actions">
+        <button class="btn" id="editClientCancel" type="button">Cancel</button>
+        <button class="btn btn-primary" id="editClientSubmit" type="button">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mark Paid Modal -->
+  <div class="modal-overlay" id="markPaidOverlay">
+    <div class="modal-card">
+      <h3>Record Payout</h3>
+      <p class="sub" id="markPaidSub">Mark an amount as paid to this clipper.</p>
+      <div class="field-label">Amount (USD)</div>
+      <input id="markPaidAmount" type="number" min="0" step="0.01" placeholder="0.00" />
+      <div class="field-label">Note (optional)</div>
+      <input id="markPaidNote" placeholder="e.g. Weekly payout via PayPal" />
+      <div class="modal-error" id="markPaidError"></div>
+      <div class="modal-actions">
+        <button class="btn" id="markPaidCancel" type="button">Cancel</button>
+        <button class="btn btn-primary" id="markPaidSubmit" type="button">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const clientId = new URLSearchParams(location.search).get("id");
+    if (!clientId) {
+      document.body.innerHTML = '<div class="page"><p>Missing client id. <a href="index.html">Back to dashboard</a></p></div>';
+      throw new Error("missing id");
+    }
+
+    let activeClipperId = null;
+    let payoutRate = { rate_views: 100000, rate_cents: 500 };
+    let isAdmin = false;
+
+    const PERIOD_LABELS = {
+      all: "Total Views",
+      7: "Views (Last 7 Days)",
+      28: "Views (Last 28 Days)",
+      90: "Views (Last 90 Days)",
+      365: "Views (Last 365 Days)",
+      custom: "Views (Custom Range)",
+    };
+
+    function currentPeriodQuery() {
+      const period = document.getElementById("periodFilter").value;
+      if (period === "custom") {
+        const start = document.getElementById("customStart").value;
+        const end = document.getElementById("customEnd").value;
+        if (!start || !end) return null;
+        return `?period=custom&start=${start}&end=${end}`;
+      }
+      if (period === "all") return "";
+      return `?period=${period}`;
+    }
+
+    function channelChipsHtml(channels, tiktokAccounts) {
+      const youtubeChips = (channels || []).map(
+        (ch) =>
+          `<span class="channel-chip">${ch.thumbnail_url ? `<img class="channel-avatar" src="${esc(ch.thumbnail_url)}" />` : ""} ${esc(ch.channel_title || ch.channel_handle || ch.channel_id)}</span>`
+      );
+      const tiktokChips = (tiktokAccounts || []).map(
+        (acc) =>
+          `<span class="channel-chip channel-chip-tiktok">${acc.thumbnail_url ? `<img class="channel-avatar" src="${esc(acc.thumbnail_url)}" />` : ""} ${esc(acc.display_name || acc.username || acc.account_id)}</span>`
+      );
+      return `
+        <div class="account-group"><span class="account-group-label">YT</span>${youtubeChips.length ? youtubeChips.join("") : `<span class="account-empty">Not linked</span>`}</div>
+        <div class="account-group"><span class="account-group-label account-group-label-tiktok">TikTok</span>${tiktokChips.length ? tiktokChips.join("") : `<span class="account-empty">Not linked</span>`}</div>`;
+    }
+
+    function clipperRowHtml(c) {
+      return `
+        <tr>
+          <td>
+            <div class="clipper-name">${esc(c.name)}</div>
+            ${c.notes ? `<div class="clipper-notes">${esc(c.notes)}</div>` : ""}
+          </td>
+          <td>${channelChipsHtml(c.channels, c.tiktok_accounts)}</td>
+          <td>${Number(c.period_short_count).toLocaleString()}</td>
+          <td>${Number(c.period_views).toLocaleString()}</td>
+          <td class="amount green">${formatMoney(c.period_earned_cents)}</td>
+          <td class="amount">${formatMoney(c.paid_cents)}</td>
+          ${
+            isAdmin
+              ? `<td>
+                  <div class="row-actions">
+                    <button class="btn btn-sm mark-paid-btn" data-id="${esc(c.id)}" data-name="${esc(c.name)}" type="button">Mark Paid</button>
+                  </div>
+                </td>`
+              : ""
+          }
+        </tr>`;
+    }
+
+    async function loadClient(query) {
+      try {
+        const client = await apiFetch(`/api/clients/${clientId}${query}`);
+        document.getElementById("clientName").textContent = client.name;
+        document.getElementById("clientNotes").textContent = client.notes || "";
+        document.getElementById("statClippers").textContent = Number(client.clipper_count).toLocaleString();
+        document.getElementById("statShorts").textContent = Number(client.short_count).toLocaleString();
+        document.getElementById("statViews").textContent = Number(client.total_views).toLocaleString();
+        document.getElementById("statPaid").textContent = formatMoney(client.paid_cents);
+        renderChannels(client.channels, client.tiktok_accounts);
+
+        const periodValue = document.getElementById("periodFilter").value;
+        document.getElementById("statViewsLabel").textContent = PERIOD_LABELS[periodValue] || "Total Views";
+
+        const notice = document.getElementById("historyNotice");
+        if (periodValue !== "all" && !client.has_history) {
+          notice.style.display = "block";
+          notice.textContent =
+            "Still fetching post dates for some clips in the background — period totals may be undercounted until that finishes.";
+        } else {
+          notice.style.display = "none";
+        }
+        return client;
+      } catch (err) {
+        document.getElementById("clientName").textContent = "Client not found";
+        console.error(err.message);
+        return null;
+      }
+    }
+
+    function renderChannels(channels, tiktokAccounts) {
+      const list = document.getElementById("channelsList");
+      const rows = [
+        ...(channels || []).map((ch) => ({
+          id: ch.id,
+          platform: "youtube",
+          label: ch.channel_title || ch.channel_handle || ch.channel_id,
+          thumb: ch.thumbnail_url,
+        })),
+        ...(tiktokAccounts || []).map((a) => ({
+          id: a.id,
+          platform: "tiktok",
+          label: a.display_name || a.username || a.account_id,
+          thumb: a.thumbnail_url,
+        })),
+      ];
+      if (rows.length === 0) {
+        list.innerHTML = isAdmin
+          ? `<span class="account-empty">No channels assigned yet — use the dropdown above to assign one.</span>`
+          : `<span class="account-empty">No channels assigned yet.</span>`;
+        return;
+      }
+      list.innerHTML = rows
+        .map(
+          (r) => `
+        <span class="channel-chip${r.platform === "tiktok" ? " channel-chip-tiktok" : ""}" style="margin: 0 6px 6px 0;">
+          ${r.thumb ? `<img class="channel-avatar" src="${esc(r.thumb)}" />` : ""} ${esc(r.label)}
+          ${
+            isAdmin
+              ? `<button class="unassign-channel-btn" data-id="${esc(r.id)}" data-platform="${r.platform}" type="button" title="Unassign" style="border: none; background: none; cursor: pointer; color: inherit; font-weight: 700; margin-left: 4px;">×</button>`
+              : ""
+          }
+        </span>`
+        )
+        .join(" ");
+    }
+
+    async function loadChannelPool() {
+      const pool = await apiFetch("/api/channels-pool");
+      const select = document.getElementById("channelPoolSelect");
+      const options = [
+        ...pool.youtube.map((c) => ({
+          id: c.id,
+          platform: "youtube",
+          label: c.channel_title || c.channel_handle || c.channel_id,
+          clientId: c.client_id,
+        })),
+        ...pool.tiktok.map((a) => ({
+          id: a.id,
+          platform: "tiktok",
+          label: a.display_name || a.username || a.account_id,
+          clientId: a.client_id,
+        })),
+      ];
+      select.innerHTML =
+        `<option value="">Select a channel to assign…</option>` +
+        options
+          .map((o) => {
+            const tag = o.clientId === clientId ? " (already this client)" : o.clientId ? " (assigned elsewhere)" : "";
+            return `<option value="${o.platform}:${esc(o.id)}">${o.platform === "tiktok" ? "TikTok" : "YouTube"} — ${esc(o.label)}${tag}</option>`;
+          })
+          .join("");
+    }
+
+    async function loadClippersTable(query) {
+      try {
+        const extra = query ? `&${query.slice(1)}` : "";
+        const list = await apiFetch(`/api/clippers?client_id=${clientId}${extra}`);
+        document.getElementById("emptyState").style.display = list.length === 0 ? "block" : "none";
+        document.getElementById("clippersTbody").innerHTML = list.map(clipperRowHtml).join("");
+      } catch (err) {
+        console.error("Failed to load clippers:", err.message);
+      }
+    }
+
+    async function refreshAll() {
+      const query = currentPeriodQuery();
+      if (query === null) return;
+      await loadClient(query);
+      if (isAdmin) await loadChannelPool();
+      await loadClippersTable(query);
+    }
+
+    document.getElementById("periodFilter").addEventListener("change", (e) => {
+      const customRow = document.getElementById("customRangeRow");
+      if (e.target.value === "custom") {
+        customRow.style.display = "flex";
+        if (!document.getElementById("customStart").value) {
+          const today = new Date();
+          const weekAgo = new Date(today.getTime() - 7 * 86400000);
+          document.getElementById("customStart").value = weekAgo.toISOString().slice(0, 10);
+          document.getElementById("customEnd").value = today.toISOString().slice(0, 10);
+        }
+        refreshAll();
+      } else {
+        customRow.style.display = "none";
+        refreshAll();
+      }
+    });
+    document.getElementById("customApplyBtn").addEventListener("click", () => {
+      refreshAll();
+    });
+
+    // Payout rate
+    function renderRateButton() {
+      const dollars = (payoutRate.rate_cents / 100).toFixed(2);
+      document.getElementById("editRateBtn").textContent =
+        `Rate: $${dollars} / ${Number(payoutRate.rate_views).toLocaleString()} views`;
+    }
+    async function fetchRate() {
+      try {
+        payoutRate = await apiFetch("/api/settings");
+        renderRateButton();
+      } catch (err) {
+        console.error("Failed to load rate:", err.message);
+      }
+    }
+    const editRateOverlay = document.getElementById("editRateOverlay");
+    document.getElementById("editRateBtn").addEventListener("click", () => {
+      document.getElementById("rateViewsInput").value = payoutRate.rate_views;
+      document.getElementById("rateAmountInput").value = (payoutRate.rate_cents / 100).toFixed(2);
+      document.getElementById("editRateError").style.display = "none";
+      editRateOverlay.classList.add("open");
+    });
+    document.getElementById("editRateCancel").addEventListener("click", () => {
+      editRateOverlay.classList.remove("open");
+    });
+    document.getElementById("editRateSubmit").addEventListener("click", async () => {
+      const views = parseInt(document.getElementById("rateViewsInput").value, 10);
+      const amount = parseFloat(document.getElementById("rateAmountInput").value);
+      const errorBox = document.getElementById("editRateError");
+      if (!views || views <= 0) {
+        errorBox.textContent = "Enter a valid number of views greater than 0.";
+        errorBox.style.display = "block";
+        return;
+      }
+      if (!amount || amount <= 0) {
+        errorBox.textContent = "Enter a valid amount greater than $0.";
+        errorBox.style.display = "block";
+        return;
+      }
+      try {
+        payoutRate = await apiFetch("/api/settings", {
+          method: "PATCH",
+          body: JSON.stringify({ rate_views: views, rate_cents: Math.round(amount * 100) }),
+        });
+        renderRateButton();
+        editRateOverlay.classList.remove("open");
+        await refreshAll();
+      } catch (err) {
+        errorBox.textContent = err.message || "Failed to update rate.";
+        errorBox.style.display = "block";
+      }
+    });
+
+    document.getElementById("assignChannelBtn").addEventListener("click", async () => {
+      const value = document.getElementById("channelPoolSelect").value;
+      if (!value) return;
+      const [platform, id] = value.split(":");
+      const path = platform === "tiktok" ? `/api/tiktok-accounts/${id}/client` : `/api/channels/${id}/client`;
+      try {
+        await apiFetch(path, { method: "PATCH", body: JSON.stringify({ client_id: clientId }) });
+        await refreshAll();
+      } catch (err) {
+        alert(`Failed to assign channel: ${err.message}`);
+      }
+    });
+
+    document.getElementById("channelsList").addEventListener("click", async (e) => {
+      const btn = e.target.closest(".unassign-channel-btn");
+      if (!btn) return;
+      const path =
+        btn.dataset.platform === "tiktok"
+          ? `/api/tiktok-accounts/${btn.dataset.id}/client`
+          : `/api/channels/${btn.dataset.id}/client`;
+      try {
+        await apiFetch(path, { method: "PATCH", body: JSON.stringify({ client_id: null }) });
+        await refreshAll();
+      } catch (err) {
+        alert(`Failed to unassign channel: ${err.message}`);
+      }
+    });
+
+    // Edit client modal
+    const editClientOverlay = document.getElementById("editClientOverlay");
+    document.getElementById("editClientBtn").addEventListener("click", async () => {
+      const client = await apiFetch(`/api/clients/${clientId}`);
+      document.getElementById("editClientName").value = client.name;
+      document.getElementById("editClientNotes").value = client.notes || "";
+      document.getElementById("editClientError").style.display = "none";
+      editClientOverlay.classList.add("open");
+    });
+    document.getElementById("editClientCancel").addEventListener("click", () => {
+      editClientOverlay.classList.remove("open");
+    });
+    document.getElementById("editClientSubmit").addEventListener("click", async () => {
+      const name = document.getElementById("editClientName").value.trim();
+      const notes = document.getElementById("editClientNotes").value.trim();
+      const errorBox = document.getElementById("editClientError");
+      if (!name) {
+        errorBox.textContent = "Name is required.";
+        errorBox.style.display = "block";
+        return;
+      }
+      try {
+        await apiFetch(`/api/clients/${clientId}`, {
+          method: "PATCH",
+          body: JSON.stringify({ name, notes: notes || null }),
+        });
+        editClientOverlay.classList.remove("open");
+        await loadClient(currentPeriodQuery() || "");
+      } catch (err) {
+        errorBox.textContent = err.message || "Failed to update client.";
+        errorBox.style.display = "block";
+      }
+    });
+
+    document.getElementById("deleteClientBtn").addEventListener("click", async () => {
+      const client = await apiFetch(`/api/clients/${clientId}`);
+      if (
+        !confirm(
+          `Delete client "${client.name}"? This won't delete the channels or clippers — they'll just become unassigned.`
+        )
+      )
+        return;
+      try {
+        await apiFetch(`/api/clients/${clientId}`, { method: "DELETE" });
+        location.href = "index.html";
+      } catch (err) {
+        alert(`Failed to delete client: ${err.message}`);
+      }
+    });
+
+    // Mark Paid modal
+    const markPaidOverlay = document.getElementById("markPaidOverlay");
+    document.getElementById("clippersTbody").addEventListener("click", (e) => {
+      const payBtn = e.target.closest(".mark-paid-btn");
+      if (!payBtn) return;
+      activeClipperId = payBtn.dataset.id;
+      document.getElementById("markPaidSub").textContent = `Mark an amount as paid to ${payBtn.dataset.name}.`;
+      document.getElementById("markPaidAmount").value = "";
+      document.getElementById("markPaidNote").value = "";
+      document.getElementById("markPaidError").style.display = "none";
+      markPaidOverlay.classList.add("open");
+    });
+    document.getElementById("markPaidCancel").addEventListener("click", () => {
+      markPaidOverlay.classList.remove("open");
+    });
+    document.getElementById("markPaidSubmit").addEventListener("click", async () => {
+      const amount = parseFloat(document.getElementById("markPaidAmount").value);
+      const note = document.getElementById("markPaidNote").value.trim();
+      const errorBox = document.getElementById("markPaidError");
+      if (!amount || amount <= 0) {
+        errorBox.textContent = "Enter a valid amount greater than $0.";
+        errorBox.style.display = "block";
+        return;
+      }
+      try {
+        await apiFetch("/api/payouts", {
+          method: "POST",
+          body: JSON.stringify({
+            clipper_id: activeClipperId,
+            amount_cents: Math.round(amount * 100),
+            note: note || null,
+          }),
+        });
+        markPaidOverlay.classList.remove("open");
+        await refreshAll();
+      } catch (err) {
+        errorBox.textContent = err.message || "Failed to record payout.";
+        errorBox.style.display = "block";
+      }
+    });
+
+    document.getElementById("logoutBtn").addEventListener("click", async () => {
+      await fetch("/api/logout", { method: "POST" });
+      window.location.href = "/login.html";
+    });
+
+    function applyRoleVisibility() {
+      if (isAdmin) {
+        document.getElementById("dashboardLink").style.display = "inline-block";
+        return;
+      }
+      document.getElementById("editRateBtn").style.display = "none";
+      document.getElementById("editClientBtn").style.display = "none";
+      document.getElementById("deleteClientBtn").style.display = "none";
+      document.getElementById("channelAssignControls").style.display = "none";
+      document.getElementById("actionsHeadCell").style.display = "none";
+    }
+
+    (async function init() {
+      try {
+        const res = await fetch("/api/me");
+        const me = await res.json();
+        isAdmin = res.ok && me.role === "admin";
+      } catch (err) {
+        isAdmin = false;
+      }
+      applyRoleVisibility();
+      fetchRate();
+      refreshAll();
+      setInterval(() => {
+        const query = currentPeriodQuery();
+        if (query !== null) loadClippersTable(query);
+      }, 45000);
+    })();
+  </script>
+</body>
+</html>
