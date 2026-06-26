@@ -9,6 +9,7 @@ const clippersRoutes = require("./routes/clippers");
 const payoutsRoutes = require("./routes/payouts");
 const settingsRoutes = require("./routes/settings");
 const clientsRoutes = require("./routes/clients");
+const autofileRoutes = require("./routes/autofile");
 const { requireAuth, requireAuthPage } = require("./middleware/requireAuth");
 const { startShortsSync } = require("./jobs/shorts-sync");
 const { startDateBackfill } = require("./jobs/date-backfill");
@@ -32,6 +33,7 @@ app.use("/api", clippersRoutes);
 app.use("/api", payoutsRoutes);
 app.use("/api", settingsRoutes);
 app.use("/api", clientsRoutes);
+app.use("/api", autofileRoutes);
 
 // Everything else (the dashboard pages) requires a valid session and redirects to /login.html.
 app.use(requireAuthPage);

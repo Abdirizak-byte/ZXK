@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Auto-File Clips — Shorts Payout Tracker</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="api.js"></script>
+  <style>
+    .clip-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .clip-card img {
+      width: 100%;
+      aspect-ratio: 9 / 16;
+      object-fit: cover;
+      display: block;
+      background: var(--bg);
+    }
+    .clip-card .clip-body {
+      padding: 10px 12px;
+    }
+    .clip-card .clip-title {
+      font-size: 12.5px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .clip-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 14px;
+      padding: 14px 18px;
+    }
+    .uncertain-tag {
+      color: var(--amber);
+      font-weight: 600;
+      font-size: 11.5px;
+    }
+    .matched-tag {
+      color: var(--green);
+      font-weight: 600;
+      font-size: 11.5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="page-header">
+      <div>
+        <a class="back-link" href="index.html">← Back to dashboard</a>
+        <h1>Auto-File Clips</h1>
+        <p>AI matches unassigned clip thumbnails to the clipper who likely made them, using examples you've already confirmed.</p>
+      </div>
+    </div>
+
+    <div class="panel" id="channelsPanel" style="margin-bottom: 20px;">
+      <div class="panel-head">
+        <h2>Channels needing review</h2>
+      </div>
+      <div id="channelsList" style="padding: 14px 18px;"></div>
+      <div class="empty-state" id="channelsEmpty" style="display: none;">
+        <h3>Nothing to file</h3>
+        <p>Every channel with multiple clippers has all its clips assigned.</p>
+      </div>
+    </div>
+
+    <div class="panel" id="previewPanel" style="display: none;">
+      <div class="panel-head">
+        <h2 id="previewTitle">Suggestions</h2>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn" id="cancelPreviewBtn" type="button">Cancel</button>
+          <button class="btn btn-primary" id="applyBtn" type="button">Apply Selected</button>
+        </div>
+      </div>
+      <div id="previewError" class="modal-error" style="margin: 14px 18px 0; display: none;"></div>
+      <div class="clip-grid" id="previewGrid"></div>
+    </div>
+  </div>
+
+  <script>
+    let currentChannelId = null;
+    let currentSuggestions = [];
+    let currentClippers = [];
+
+    function channelRowHtml(c) {
+      return `
+        <div class="client-group-bar" style="border-bottom: 1px solid var(--border); padding: 10px 0;">
+          <span>
+            <strong>${esc(c.channel_title || c.channel_handle || c.id)}</strong>
+            <span style="color: var(--muted); font-size: 12.5px; margin-left: 8px;">
+              ${c.clipper_count} clippers linked · ${c.unassigned_count} unassigned clips
+            </span>
+          </span>
+          <button class="btn btn-sm btn-primary preview-btn" data-id="${esc(c.id)}" type="button">Preview AI Suggestions</button>
+        </div>`;
+    }
+
+    async function loadChannels() {
+      try {
+        const channels = await apiFetch("/api/autofile/channels");
+        document.getElementById("channelsEmpty").style.display = channels.length === 0 ? "block" : "none";
+        document.getElementById("channelsList").innerHTML = channels.map(channelRowHtml).join("");
+      } catch (err) {
+        console.error("Failed to load channels:", err.message);
+      }
+    }
+
+    function suggestionCardHtml(s) {
+      const options = currentClippers
+        .map(
+          (c) =>
+            `<option value="${esc(c.id)}"${c.id === s.suggested_clipper_id ? " selected" : ""}>${esc(c.name)}</option>`
+        )
+        .join("");
+      return `
+        <div class="clip-card">
+          <img src="${esc(s.thumbnail_url)}" onerror="this.style.visibility='hidden'" />
+          <div class="clip-body">
+            <div class="clip-title">${esc(s.title || "Untitled")}</div>
+            <div style="margin-bottom: 8px;">
+              ${
+                s.suggested_clipper_name
+                  ? `<span class="matched-tag">AI: ${esc(s.suggested_clipper_name)}</span>`
+                  : `<span class="uncertain-tag">AI: uncertain</span>`
+              }
+            </div>
+            <select class="select-control select-sm assign-select" data-short-id="${esc(s.short_id)}" style="width: 100%;">
+              <option value="">Leave unassigned</option>
+              ${options}
+            </select>
+          </div>
+        </div>`;
+    }
+
+    async function previewChannel(channelId) {
+      currentChannelId = channelId;
+      const errorBox = document.getElementById("previewError");
+      errorBox.style.display = "none";
+      document.getElementById("previewPanel").style.display = "block";
+      document.getElementById("previewGrid").innerHTML = `<p style="padding: 14px; color: var(--muted);">Asking the AI about each clip… this can take a minute.</p>`;
+      try {
+        const data = await apiFetch(`/api/autofile/channels/${channelId}/preview`, { method: "POST" });
+        currentSuggestions = data.suggestions;
+        currentClippers = data.eligible_clippers;
+        if (currentSuggestions.length === 0) {
+          document.getElementById("previewGrid").innerHTML = `<p style="padding: 14px; color: var(--muted);">No unassigned clips with thumbnails found.</p>`;
+          return;
+        }
+        document.getElementById("previewTitle").textContent = `Suggestions (${currentSuggestions.length} clips)`;
+        document.getElementById("previewGrid").innerHTML = currentSuggestions.map(suggestionCardHtml).join("");
+      } catch (err) {
+        document.getElementById("previewGrid").innerHTML = "";
+        errorBox.textContent = err.message;
+        errorBox.style.display = "block";
+      }
+    }
+
+    document.getElementById("channelsList").addEventListener("click", (e) => {
+      const btn = e.target.closest(".preview-btn");
+      if (!btn) return;
+      previewChannel(btn.dataset.id);
+    });
+
+    document.getElementById("cancelPreviewBtn").addEventListener("click", () => {
+      document.getElementById("previewPanel").style.display = "none";
+      currentChannelId = null;
+      currentSuggestions = [];
+    });
+
+    document.getElementById("applyBtn").addEventListener("click", async () => {
+      const selects = document.querySelectorAll(".assign-select");
+      const assignments = [...selects].map((sel) => ({
+        short_id: sel.dataset.shortId,
+        clipper_id: sel.value || null,
+      }));
+      try {
+        const result = await apiFetch("/api/autofile/apply", {
+          method: "POST",
+          body: JSON.stringify({ assignments }),
+        });
+        alert(`Filed ${result.applied} clip(s).`);
+        document.getElementById("previewPanel").style.display = "none";
+        await loadChannels();
+      } catch (err) {
+        alert(`Failed to apply: ${err.message}`);
+      }
+    });
+
+    loadChannels();
+  </script>
+</body>
+</html>
