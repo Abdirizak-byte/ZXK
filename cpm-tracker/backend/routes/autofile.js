@@ -3,6 +3,7 @@ const pool = require("../db");
 const wrapAsync = require("../lib/wrapAsync");
 const { classifyClip } = require("../lib/openai");
 const { requireAdmin } = require("../middleware/requireAuth");
+const { parsePeriod } = require("../lib/period");
 
 const router = wrapAsync(express.Router());
 
@@ -18,23 +19,50 @@ function sleep(ms) {
 }
 
 router.get("/autofile/channels", requireAdmin, async (req, res) => {
-  const { rows } = await pool.query(`
+  let startDate, endDate;
+  try {
+    ({ startDate, endDate } = parsePeriod(req));
+  } catch (err) {
+    return res.status(err.status || 400).json({ error: err.message });
+  }
+
+  const params = [];
+  let dateCond = "true";
+  if (startDate) {
+    params.push(startDate.toISOString());
+    dateCond = `s.published_at >= $${params.length}`;
+    if (endDate) {
+      params.push(endDate.toISOString());
+      dateCond += ` AND s.published_at <= $${params.length}`;
+    }
+  }
+
+  const { rows } = await pool.query(
+    `
     SELECT
       yc.id, yc.channel_title, yc.channel_handle, yc.thumbnail_url,
       COUNT(DISTINCT cyc.clipper_id) AS clipper_count,
-      COUNT(s.id) FILTER (WHERE s.assigned_clipper_id IS NULL) AS unassigned_count
+      COUNT(s.id) FILTER (WHERE s.assigned_clipper_id IS NULL AND ${dateCond}) AS unassigned_count
     FROM youtube_channels yc
     JOIN clipper_youtube_channels cyc ON cyc.channel_id = yc.id
     LEFT JOIN shorts s ON s.channel_id = yc.id
     GROUP BY yc.id
-    HAVING COUNT(DISTINCT cyc.clipper_id) > 1 AND COUNT(s.id) FILTER (WHERE s.assigned_clipper_id IS NULL) > 0
+    HAVING COUNT(DISTINCT cyc.clipper_id) > 1 AND COUNT(s.id) FILTER (WHERE s.assigned_clipper_id IS NULL AND ${dateCond}) > 0
     ORDER BY unassigned_count DESC
-  `);
+  `,
+    params
+  );
   res.json(rows);
 });
 
 router.post("/autofile/channels/:channelId/preview", requireAdmin, async (req, res) => {
   const { channelId } = req.params;
+  let startDate, endDate;
+  try {
+    ({ startDate, endDate } = parsePeriod(req));
+  } catch (err) {
+    return res.status(err.status || 400).json({ error: err.message });
+  }
 
   const { rows: clippers } = await pool.query(
     `SELECT c.id, c.name FROM clipper_youtube_channels cyc
@@ -71,11 +99,23 @@ router.post("/autofile/channels/:channelId/preview", requireAdmin, async (req, r
     });
   }
 
+  const targetParams = [channelId];
+  let targetDateCond = "";
+  if (startDate) {
+    targetParams.push(startDate.toISOString());
+    targetDateCond = ` AND published_at >= $${targetParams.length}`;
+    if (endDate) {
+      targetParams.push(endDate.toISOString());
+      targetDateCond += ` AND published_at <= $${targetParams.length}`;
+    }
+  }
+  targetParams.push(MAX_TARGETS_PER_PREVIEW);
+
   const { rows: targets } = await pool.query(
     `SELECT id, title, thumbnail_url FROM shorts
-     WHERE channel_id = $1 AND assigned_clipper_id IS NULL AND thumbnail_url IS NOT NULL
-     ORDER BY latest_views DESC LIMIT $2`,
-    [channelId, MAX_TARGETS_PER_PREVIEW]
+     WHERE channel_id = $1 AND assigned_clipper_id IS NULL AND thumbnail_url IS NOT NULL${targetDateCond}
+     ORDER BY latest_views DESC LIMIT $${targetParams.length}`,
+    targetParams
   );
 
   const suggestions = [];
