@@ -1,4 +1,4 @@
-const PRESET_DAYS = [7, 28, 90, 365];
+const PRESET_DAYS = [7, 30, 90, 365];
 
 function parsePeriod(req) {
   const periodParam = req.query.period;

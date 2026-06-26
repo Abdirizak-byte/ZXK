@@ -6,6 +6,21 @@
   <title>Client — Shorts Payout Tracker</title>
   <link rel="stylesheet" href="style.css" />
   <script src="api.js"></script>
+  <style>
+    .live-dot {
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+      margin-right: 5px;
+      animation: live-pulse 1.6s ease-in-out infinite;
+    }
+    @keyframes live-pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+  </style>
 </head>
 <body>
   <div class="page">
@@ -20,7 +35,7 @@
         <select class="select-control" id="periodFilter">
           <option value="all">Lifetime</option>
           <option value="7">Last 7 days</option>
-          <option value="28">Last 28 days</option>
+          <option value="30">Last 30 days</option>
           <option value="90">Last 90 days</option>
           <option value="365">Last 365 days</option>
           <option value="custom">Custom range</option>
@@ -68,6 +83,13 @@
         </div>
       </div>
       <div id="channelsList" style="padding: 14px 18px;"></div>
+    </div>
+
+    <div class="panel" style="margin-bottom: 20px;">
+      <div class="panel-head">
+        <h2>Monthly Payouts</h2>
+      </div>
+      <div id="monthlyCards" style="padding: 14px 18px; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px;"></div>
     </div>
 
     <div class="panel">
@@ -161,7 +183,7 @@
     const PERIOD_LABELS = {
       all: "Total Views",
       7: "Views (Last 7 Days)",
-      28: "Views (Last 28 Days)",
+      30: "Views (Last 30 Days)",
       90: "Views (Last 90 Days)",
       365: "Views (Last 365 Days)",
       custom: "Views (Custom Range)",
@@ -311,12 +333,37 @@
           .join("");
     }
 
+    function monthLabel(offset) {
+      const d = new Date();
+      d.setUTCDate(1);
+      d.setUTCMonth(d.getUTCMonth() + offset);
+      return d.toLocaleString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
+    }
+
+    function monthlyCardHtml(c) {
+      return `
+        <div class="stat-card">
+          <div class="label" style="margin-bottom: 10px;">${esc(c.name)}</div>
+          <div style="font-size: 12px; color: var(--muted); margin-bottom: 2px;">Owed for ${monthLabel(-1)}</div>
+          <div class="amount" style="font-size: 18px; font-weight: 700; margin-bottom: 12px;">${formatMoney(c.prev_month_owed_cents)}</div>
+          <div style="font-size: 12px; color: var(--muted); margin-bottom: 2px;"><span class="live-dot"></span>Earned in ${monthLabel(0)} (live)</div>
+          <div class="amount green" style="font-size: 18px; font-weight: 700;">${formatMoney(c.current_month_earned_cents)}</div>
+        </div>`;
+    }
+
+    function renderMonthlyCards(list) {
+      document.getElementById("monthlyCards").innerHTML = list.length
+        ? list.map(monthlyCardHtml).join("")
+        : `<span class="account-empty">No clippers yet.</span>`;
+    }
+
     async function loadClippersTable(query) {
       try {
         const extra = query ? `&${query.slice(1)}` : "";
         const list = await apiFetch(`/api/clippers?client_id=${clientId}${extra}`);
         document.getElementById("emptyState").style.display = list.length === 0 ? "block" : "none";
         document.getElementById("clippersTbody").innerHTML = list.map(clipperRowHtml).join("");
+        renderMonthlyCards(list);
       } catch (err) {
         console.error("Failed to load clippers:", err.message);
       }

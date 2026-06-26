@@ -92,6 +92,24 @@ router.get("/clippers", async (req, res) => {
   const totalViewsByPlatform = (platform) =>
     `COALESCE(SUM(content.latest_views) FILTER (WHERE content.platform = '${platform}'), 0)`;
 
+  // Calendar-month figures, independent of the period filter above: how much
+  // is owed for last month (earned - paid in that month), and how much has
+  // been earned so far this month (updates live as new views come in).
+  const now = new Date();
+  const currentMonthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const prevMonthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+  const prevMonthEnd = new Date(currentMonthStart.getTime() - 1);
+
+  params.push(currentMonthStart.toISOString());
+  const curMonthStartIdx = params.length;
+  params.push(prevMonthStart.toISOString());
+  const prevMonthStartIdx = params.length;
+  params.push(prevMonthEnd.toISOString());
+  const prevMonthEndIdx = params.length;
+
+  const currentMonthViewsExpr = `COALESCE(SUM(content.latest_views) FILTER (WHERE content.published_at >= $${curMonthStartIdx}), 0)`;
+  const prevMonthViewsExpr = `COALESCE(SUM(content.latest_views) FILTER (WHERE content.published_at >= $${prevMonthStartIdx} AND content.published_at <= $${prevMonthEndIdx}), 0)`;
+
   const { rows } = await pool.query(
     `
     WITH content AS (
@@ -121,12 +139,22 @@ router.get("/clippers", async (req, res) => {
       ${periodViewsByPlatform("youtube")} AS period_views_youtube,
       ${periodViewsByPlatform("tiktok")} AS period_views_tiktok,
       ${totalViewsByPlatform("youtube")} AS total_views_youtube,
-      ${totalViewsByPlatform("tiktok")} AS total_views_tiktok
+      ${totalViewsByPlatform("tiktok")} AS total_views_tiktok,
+      ${currentMonthViewsExpr} AS current_month_views,
+      ((${currentMonthViewsExpr})::bigint * ${rateExpr} / ${rateViewsExpr}) AS current_month_earned_cents,
+      ${prevMonthViewsExpr} AS prev_month_views,
+      ((${prevMonthViewsExpr})::bigint * ${rateExpr} / ${rateViewsExpr}) AS prev_month_earned_cents,
+      COALESCE(pm.prev_month_paid_cents, 0) AS prev_month_paid_cents
     FROM clippers c
     LEFT JOIN content ON content.clipper_id = c.id
     LEFT JOIN (
       SELECT clipper_id, SUM(amount_cents) AS paid_cents FROM payouts GROUP BY clipper_id
     ) p ON p.clipper_id = c.id
+    LEFT JOIN (
+      SELECT clipper_id, SUM(amount_cents) AS prev_month_paid_cents FROM payouts
+      WHERE paid_at >= $${prevMonthStartIdx} AND paid_at <= $${prevMonthEndIdx}
+      GROUP BY clipper_id
+    ) pm ON pm.clipper_id = c.id
     WHERE ${clientExpr} IS NULL OR EXISTS (
       SELECT 1 FROM clipper_youtube_channels cyc2
       JOIN youtube_channels yc2 ON yc2.id = cyc2.channel_id
@@ -136,7 +164,7 @@ router.get("/clippers", async (req, res) => {
       JOIN tiktok_accounts ta2 ON ta2.id = cta2.account_id
       WHERE cta2.clipper_id = c.id AND ta2.client_id = ${clientExpr}
     )
-    GROUP BY c.id, p.paid_cents
+    GROUP BY c.id, p.paid_cents, pm.prev_month_paid_cents
     ORDER BY c.created_at DESC
   `,
     params
@@ -147,6 +175,7 @@ router.get("/clippers", async (req, res) => {
     owed_cents: Number(r.earned_cents) - Number(r.paid_cents),
     period_earned_cents_youtube: Math.floor((Number(r.period_views_youtube) * rate.cents) / rate.views),
     period_earned_cents_tiktok: Math.floor((Number(r.period_views_tiktok) * rate.cents) / rate.views),
+    prev_month_owed_cents: Number(r.prev_month_earned_cents) - Number(r.prev_month_paid_cents),
   }));
 
   res.json(await attachChannels(clippers));
