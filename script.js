@@ -75,6 +75,39 @@ if (glow) {
 }
 
 // ========================================
+// STICKY NAVBAR — SHRINKS AND ADDS SHADOW ON SCROLL
+// ========================================
+const header = document.querySelector('.header');
+if (header) {
+  const updateHeaderScrollState = () => {
+    header.classList.toggle('scrolled', window.scrollY > 40);
+  };
+  updateHeaderScrollState();
+  window.addEventListener('scroll', updateHeaderScrollState);
+}
+
+// ========================================
+// SCROLL-TRIGGERED REVEAL ANIMATIONS
+// ========================================
+const revealTargets = document.querySelectorAll('.reveal, .reveal-stagger');
+if (revealTargets.length && 'IntersectionObserver' in window) {
+  // Only hide content once we know an observer is actually watching it —
+  // see the html.js-reveal-ready gate in CSS.
+  document.documentElement.classList.add('js-reveal-ready');
+
+  const revealObserver = new IntersectionObserver((entries, observer) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.15, rootMargin: '0px 0px -60px 0px' });
+
+  revealTargets.forEach((el) => revealObserver.observe(el));
+}
+
+// ========================================
 // ACTIVE NAVIGATION HIGHLIGHT ON SCROLL
 // ========================================
 const sections = document.querySelectorAll('section[id]');

@@ -14,7 +14,7 @@
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@100..900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@100..900&family=Inter:wght@100..900&family=Sora:wght@300..800&display=swap" rel="stylesheet">
 </head>
 
 <body>
@@ -111,7 +111,7 @@
        ABOUT SECTION
        ======================================== -->
   <section class="about" id="about">
-    <div class="about-content">
+    <div class="about-content reveal">
         <h2 class="heading">About <span>Me</span></h2>
         <p>I'm Zxkie, a creator operations specialist who keeps streams running smoothly behind the scenes. I handle
         everything from custom overlays and live chat moderation to full production workflows and content distribution.
@@ -120,11 +120,11 @@
         
     </div>
 
-    <div class="video-content">
+    <div class="video-content reveal">
         <h2>Here is a brief overview of my Video Editing skills.</h2>
       </div>
 
-    <div class="about-video">
+    <div class="about-video reveal">
         <iframe 
             width="100%" 
             height="315" 
@@ -144,14 +144,15 @@
        SERVICES SECTION
        ======================================== -->
   <section class="services" id="services">
-    <div class="service-content">
+    <div class="service-content reveal">
       <h1 class="title">My services</h1>
       
       <!-- Service Cards Grid -->
-      <div class="service-cards">
+      <div class="service-cards reveal-stagger">
         <!-- Card 1: Stream Overlays -->
         <div class="card">
           <div class="card-content">
+            <i class='bx bx-layer card-icon'></i>
             <h3>Stream Overlays</h3>
             <p class="card-description">
               Custom overlays designed for clarity and engagement. Clean layouts that enhance the stream without distraction.
@@ -162,6 +163,7 @@
         <!-- Card 2: YouTube Editing -->
         <div class="card">
           <div class="card-content">
+            <i class='bx bxl-youtube card-icon'></i>
             <h3>Youtube Editing</h3>
             <p class="card-description">
               Full video editing for multiple channels. Pacing, cuts, and effects that keep viewers engaged.
@@ -172,6 +174,7 @@
         <!-- Card 3: Stream Production -->
         <div class="card">
           <div class="card-content">
+            <i class='bx bx-broadcast card-icon'></i>
             <h3>Stream Production</h3>
             <p class="card-description">
               Studio and IRL setups, scene switching, multi-POV events, and quick fixes when things break.
@@ -182,6 +185,7 @@
         <!-- Card 4: Discord Building -->
         <div class="card">
           <div class="card-content">
+            <i class='bx bxl-discord card-icon'></i>
             <h3>Discord Building</h3>
             <p class="card-description">
               Community servers built for organization and growth. Bots, roles, channels—everything configured properly.
@@ -192,6 +196,7 @@
         <!-- Card 5: Chat Moderation -->
         <div class="card">
           <div class="card-content">
+            <i class='bx bx-message-check card-icon'></i>
             <h3>Chat Moderation</h3>
             <p class="card-description">
               Experienced moderator who keeps chat flowing smoothly. I understand community management and enforcement.
@@ -209,11 +214,11 @@
     <h1 class="title">Contact Me</h1>
     <p class="contact-subtitle">Have a project in mind? Send me a message and I'll get back to you within 24 hours.</p>
 
-    <div class="contact-container">
+    <div class="contact-container reveal">
       <!-- Contact Form with Web3Forms Integration -->
       <form class="contact-form" id="contactForm" action="https://api.web3forms.com/submit" method="POST">
         <!-- Web3Forms Access Key-->
-        <input type="hidden" name="access_key" value="db87bdf1-97ee-4803-bee0-c3bd935bae32">
+        <input type="hidden" name="access_key" value="e539fb16-f283-4a74-9d1e-2573c978d172">
 
         <!-- Honeypot for spam protection -->
         <input type="checkbox" name="botcheck" class="hidden" style="display: none;">
@@ -257,7 +262,7 @@
     </div>
 
     <!-- CPM Tracker CTA -->
-    <div class="cpm-cta">
+    <div class="cpm-cta reveal">
       <p class="cpm-cta-text">Already working with me? Manage your campaigns here.</p>
       <a href="https://zxk-cpm-tracker.onrender.com/" class="cpm-tracker-btn" target="_blank">
         <i class='bx bx-line-chart'></i> CPM TRACKER
@@ -269,6 +274,41 @@
        FOOTER
        ======================================== -->
   <footer class="footer">
+    <div class="footer-content reveal">
+      <div class="footer-col footer-brand">
+        <a href="#home" class="logo">Zxkie</a>
+        <p>Stream production, overlays, and community systems built for creators who want to focus on performance.</p>
+      </div>
+
+      <div class="footer-col">
+        <h4>Quick Links</h4>
+        <a href="#home">Home</a>
+        <a href="#about">About Me</a>
+        <a href="#services">Services</a>
+        <a href="mywork.html">My Work</a>
+        <a href="#contact">Contact</a>
+      </div>
+
+      <div class="footer-col">
+        <h4>Services</h4>
+        <a href="#services">Stream Overlays</a>
+        <a href="#services">YouTube Editing</a>
+        <a href="#services">Stream Production</a>
+        <a href="#services">Discord Building</a>
+        <a href="#services">Chat Moderation</a>
+      </div>
+
+      <div class="footer-col">
+        <h4>Connect</h4>
+        <div class="footer-socials">
+          <a href="https://www.twitch.tv/zxkie_" target="_blank" aria-label="Twitch"><i class='bx bxl-twitch'></i></a>
+          <a href="https://www.instagram.com/zxkie.jpg/" target="_blank" aria-label="Instagram"><i class='bx bxl-instagram'></i></a>
+          <a href="https://www.youtube.com/channel/UCtANsU_20UFLXk6wgHuqVzQ" target="_blank" aria-label="YouTube"><i class='bx bxl-youtube'></i></a>
+        </div>
+        <a href="#contact" class="footer-contact-link">Get in touch →</a>
+      </div>
+    </div>
+
     <p class="copyright">
       <i class='bx bx-copyright'></i> Zxkie | All rights reserved
     </p>

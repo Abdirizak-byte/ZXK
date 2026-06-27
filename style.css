@@ -10,8 +10,14 @@
   outline: none;
   border: none;
   box-sizing: border-box;
-  font-family: "Lexend", system-ui, Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  font-family: var(--font-body), "Lexend", system-ui, Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
   font-weight: 200;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading), "Lexend", system-ui, sans-serif;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
 }
 
 /* ========================================
@@ -25,6 +31,26 @@
   --green-2: #95d5b2;
   --green-3: #74c69d;
   --dark-green: #40916c;
+
+  /* Semantic color system — built on the palette above so existing
+     references keep working while new components can use intent-based names. */
+  --color-primary: var(--dark-green);
+  --color-primary-strong: #2d6a4f;
+  --color-secondary: var(--green-2);
+  --color-accent: #a6ff00;
+  --color-neutral-bg: var(--bg-color);
+  --color-neutral-surface: rgba(216, 243, 220, 0.04);
+  --color-neutral-surface-strong: rgba(216, 243, 220, 0.08);
+  --color-neutral-border: rgba(149, 213, 178, 0.18);
+  --color-neutral-text: var(--text-color);
+  --color-neutral-muted: rgba(216, 243, 220, 0.65);
+
+  --font-heading: "Sora", "Lexend", system-ui, sans-serif;
+  --font-body: "Inter", "Lexend", system-ui, sans-serif;
+
+  /* Subtle noise texture (alpha baked into the SVG itself) layered over flat
+     section backgrounds so they don't read as completely flat color fills. */
+  --noise-bg: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='matrix' values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.05 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
 }
 
 /* ========================================
@@ -37,13 +63,14 @@ html {
 }
 
 body {
-  background: var(--bg-color);
+  background-color: var(--bg-color);
+  background-image: var(--noise-bg);
   color: var(--text-color);
 }
 
 section {
   min-height: 100vh;
-  padding: 10rem 9% 2rem;
+  padding: 10rem 9% 7rem;
 }
 
 /* ========================================
@@ -75,10 +102,17 @@ section {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  transition: all 0.5s ease;
-  padding: 1rem 5%;
+  transition: padding 0.3s ease, background 0.3s ease, box-shadow 0.3s ease;
+  padding: 1.6rem 5%;
   backdrop-filter: blur(10px);
   background: rgba(8, 28, 21, 0.8);
+}
+
+.header.scrolled {
+  padding: 0.9rem 5%;
+  background: rgba(8, 28, 21, 0.95);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+  border-bottom: 1px solid var(--color-neutral-border);
 }
 
 .logo {
@@ -165,6 +199,10 @@ section {
   color: var(--bg-color) !important;
 }
 
+.nav-cpm-btn:active {
+  transform: scale(0.98);
+}
+
 .nav-cpm-btn.active {
   box-shadow: 0 0 25px rgba(149, 213, 178, 0.9);
 }
@@ -179,6 +217,11 @@ section {
   align-items: center;
   min-height: 100vh;
   gap: 5rem;
+  position: relative;
+  background:
+    radial-gradient(circle at 12% 20%, rgba(166, 255, 0, 0.07), transparent 38%),
+    radial-gradient(circle at 88% 12%, rgba(64, 145, 108, 0.3), transparent 45%),
+    radial-gradient(circle at 65% 95%, rgba(149, 213, 178, 0.14), transparent 50%);
 }
 
 .home-content {
@@ -307,6 +350,10 @@ section {
   box-shadow: 0 0 25px var(--dark-green);
 }
 
+.social-media a:active {
+  transform: scale(0.95) translateY(-2px);
+}
+
 /* Call to Action Button */
 .btn {
   display: inline-block;
@@ -316,15 +363,21 @@ section {
   font-size: 1.8rem;
   color: var(--bg-color);
   font-weight: 400;
-  transition: 0.3s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
   cursor: pointer;
   text-align: center;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
 }
 
 .btn:hover {
   background: var(--green-3);
-  transform: scale(1.05);
+  transform: translateY(-2px) scale(1.05);
   box-shadow: 0 0 25px var(--dark-green);
+}
+
+.btn:active {
+  transform: translateY(0) scale(0.97);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 /* ========================================
@@ -404,9 +457,10 @@ section {
   align-items: center;    /* Centre horizontalement */
   justify-content: center;
   gap: 4rem;              /* Espace entre le texte et la vidéo */
-  background: var(--bg-color);
+  background-color: var(--bg-color);
+  background-image: var(--noise-bg);
   text-align: center;     /* Centre le texte à l'intérieur des paragraphes */
-  padding: 10rem 9% 5rem;
+  padding: 10rem 9% 7rem;
 }
 
 .about-img img {
@@ -426,7 +480,7 @@ section {
 
 
 .heading {
-  font-size: 6rem;
+  font-size: 4.8rem;
   text-align: left;
   color: var(--text-color);
   font-weight: 800;
@@ -492,7 +546,7 @@ section {
 .title {
   text-align: center;
   font-weight: 900;
-  font-size: 7rem;
+  font-size: 5rem;
   margin-bottom: 2rem;
 }
 
@@ -518,6 +572,29 @@ section {
   font-weight: bold;
   border-radius: 15px;
   cursor: pointer;
+  border: 1px solid var(--color-neutral-border);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+}
+
+.card-icon {
+  display: block;
+  font-size: 3.6rem;
+  color: var(--dark-green);
+  margin-bottom: 0.8rem;
+  transition: 0.3s ease;
+  position: relative;
+  z-index: 10;
+}
+
+.card:hover .card-icon {
+  color: var(--text-color);
+  transform: scale(1.1);
 }
 
 .card::before,
@@ -610,6 +687,7 @@ section {
 
 .contact {
   background-color: var(--bg-color);
+  background-image: var(--noise-bg);
 }
 
 .contact-subtitle {
@@ -745,6 +823,10 @@ section {
   box-shadow: 0 0 40px rgba(64, 145, 108, 0.9);
 }
 
+.cpm-tracker-btn:active {
+  transform: scale(0.98);
+}
+
 .cpm-tracker-btn:focus-visible {
   outline: 3px solid var(--green-1);
   outline-offset: 4px;
@@ -767,15 +849,100 @@ section {
   position: relative;
   bottom: 0;
   width: 100%;
-  padding: 40px 0;
+  padding: 6rem 9% 3rem;
   background-color: var(--text-color);
+}
+
+.footer-content {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr 1fr;
+  gap: 4rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding-bottom: 4rem;
+  border-bottom: 1px solid rgba(8, 28, 21, 0.15);
+}
+
+.footer-col h4 {
+  color: var(--bg-color);
+  font-size: 1.6rem;
+  font-weight: 800;
+  margin-bottom: 1.6rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.footer-col a {
+  display: block;
+  color: var(--bg-color);
+  opacity: 0.75;
+  font-size: 1.5rem;
+  margin-bottom: 1.1rem;
+  transition: 0.2s ease;
+}
+
+.footer-col a:hover {
+  opacity: 1;
+  color: var(--dark-green);
+  transform: translateX(3px);
+}
+
+.footer-brand .logo {
+  font-size: 2.6rem;
+  margin-bottom: 1.2rem;
+  /* The neon gradient logo is tuned for the dark header — on the footer's
+     light background it renders almost invisible, so use a solid color here. */
+  background: none;
+  -webkit-text-fill-color: var(--bg-color);
+  color: var(--bg-color);
+  animation: none;
+  filter: none;
+}
+
+.footer-brand p {
+  color: var(--bg-color);
+  opacity: 0.75;
+  font-size: 1.5rem;
+  line-height: 1.6;
+  max-width: 32rem;
+}
+
+.footer-socials {
+  display: flex;
+  gap: 1.2rem;
+  margin-bottom: 1.6rem;
+}
+
+.footer-socials a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.8rem;
+  height: 3.8rem;
+  border-radius: 50%;
+  border: 1.5px solid var(--bg-color);
+  font-size: 1.8rem;
+  margin-bottom: 0;
+}
+
+.footer-socials a:hover {
+  background: var(--bg-color);
+  color: var(--text-color);
+  transform: translateY(-3px);
+}
+
+.footer-contact-link {
+  font-weight: 700;
+  color: var(--dark-green) !important;
+  opacity: 1 !important;
 }
 
 .copyright {
   text-align: center;
   color: var(--bg-color);
-  font-size: 16px;
-  margin-top: 20px;
+  font-size: 15px;
+  margin-top: 3rem;
+  opacity: 0.75;
 }
 
 /* ========================================
@@ -823,6 +990,15 @@ section {
 
   .service-cards {
     justify-content: center;
+  }
+
+  .footer-content {
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+  }
+
+  .footer-brand {
+    grid-column: 1 / -1;
   }
 }
 
@@ -909,29 +1085,55 @@ section {
     width: 100%;
     max-width: 300px;
   }
+
+  .footer-content {
+    grid-template-columns: 1fr;
+    gap: 3rem;
+    text-align: left;
+  }
+
+  .footer-brand {
+    grid-column: auto;
+  }
 }
 
 /* ========================================
-   SMOOTH SECTION TRANSITIONS
+   SCROLL-TRIGGERED REVEAL ANIMATIONS
    ======================================== */
 
-section {
+.home {
   opacity: 0;
   transform: translateY(30px);
   animation: fadeInUp 0.8s ease forwards;
 }
 
-section:nth-child(1) {
-  animation-delay: 0s;
+/* Hidden state only applies once JS confirms an observer is watching
+   (html.js-reveal-ready) — so content is never stuck invisible if JS
+   fails to load or IntersectionObserver isn't supported. */
+.reveal {
+  transition: opacity 0.7s ease, transform 0.7s ease;
 }
 
-section:nth-child(2) {
-  animation-delay: 0.2s;
+html.js-reveal-ready .reveal:not(.visible) {
+  opacity: 0;
+  transform: translateY(28px);
 }
 
-section:nth-child(3) {
-  animation-delay: 0.4s;
+.reveal-stagger > * {
+  transition: opacity 0.5s ease, transform 0.5s ease;
 }
+
+html.js-reveal-ready .reveal-stagger:not(.visible) > * {
+  opacity: 0;
+  transform: translateY(22px);
+}
+
+.reveal-stagger.visible > *:nth-child(1) { transition-delay: 0.05s; }
+.reveal-stagger.visible > *:nth-child(2) { transition-delay: 0.1s; }
+.reveal-stagger.visible > *:nth-child(3) { transition-delay: 0.15s; }
+.reveal-stagger.visible > *:nth-child(4) { transition-delay: 0.2s; }
+.reveal-stagger.visible > *:nth-child(5) { transition-delay: 0.25s; }
+.reveal-stagger.visible > *:nth-child(6) { transition-delay: 0.3s; }
 
 @keyframes fadeInUp {
   to {

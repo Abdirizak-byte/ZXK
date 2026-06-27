@@ -215,6 +215,13 @@
         <div class="account-group"><span class="account-group-label account-group-label-tiktok">TikTok</span>${tiktokChips.length ? tiktokChips.join("") : `<span class="account-empty">Not linked</span>`}</div>`;
     }
 
+    function platformBreakdownHtml(youtubeValue, tiktokValue, formatter) {
+      youtubeValue = Number(youtubeValue);
+      tiktokValue = Number(tiktokValue);
+      if (youtubeValue === 0 || tiktokValue === 0) return "";
+      return `<div class="platform-breakdown">YT ${formatter(youtubeValue)} · TikTok ${formatter(tiktokValue)}</div>`;
+    }
+
     function clipperRowHtml(c) {
       return `
         <tr>
@@ -223,7 +230,10 @@
             ${c.notes ? `<div class="clipper-notes">${esc(c.notes)}</div>` : ""}
           </td>
           <td data-label="Channel(s)">${channelChipsHtml(c.channels, c.tiktok_accounts)}</td>
-          <td data-label="Shorts">${Number(c.period_short_count).toLocaleString()}</td>
+          <td data-label="Shorts">
+            ${Number(c.period_short_count).toLocaleString()}
+            ${platformBreakdownHtml(c.period_short_count_youtube, c.period_short_count_tiktok, (v) => v.toLocaleString())}
+          </td>
           <td data-label="Views">${Number(c.period_views).toLocaleString()}</td>
           <td class="amount green" data-label="Earned">${formatMoney(c.period_earned_cents)}</td>
           <td class="amount" data-label="Paid">${formatMoney(c.paid_cents)}</td>

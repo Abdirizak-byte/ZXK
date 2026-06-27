@@ -103,6 +103,34 @@ body {
   padding: 5px 10px;
   font-size: 12px;
 }
+.btn-ghost {
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+}
+.btn-ghost:hover {
+  background: var(--red-soft);
+  color: var(--red);
+  border-color: #fecaca;
+}
+
+.header-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.header-divider {
+  width: 1px;
+  height: 22px;
+  background: var(--border-strong);
+  flex-shrink: 0;
+}
+@media (max-width: 880px) {
+  .header-divider {
+    display: none;
+  }
+}
 
 .select-control {
   padding: 8px 12px;
@@ -283,6 +311,22 @@ tr.client-group-header-none td {
 .channel-chip-tiktok {
   background: #fde7ef;
   color: #c2185b;
+}
+.chip-disconnect-btn {
+  border: none;
+  background: none;
+  padding: 0;
+  margin-left: 2px;
+  color: inherit;
+  opacity: 0.55;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  font-weight: 700;
+}
+.chip-disconnect-btn:hover {
+  opacity: 1;
+  color: var(--red);
 }
 
 .account-group {

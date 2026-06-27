@@ -91,6 +91,8 @@ router.get("/clippers", async (req, res) => {
     `COALESCE(SUM(content.latest_views) FILTER (WHERE content.platform = '${platform}'${dateCond ? ` AND ${dateCond}` : ""}), 0)`;
   const totalViewsByPlatform = (platform) =>
     `COALESCE(SUM(content.latest_views) FILTER (WHERE content.platform = '${platform}'), 0)`;
+  const periodShortCountByPlatform = (platform) =>
+    `COUNT(content.id) FILTER (WHERE content.platform = '${platform}'${dateCond ? ` AND ${dateCond}` : ""})`;
 
   // Calendar-month figures, independent of the period filter above: how much
   // is owed for last month (earned - paid in that month), and how much has
@@ -131,6 +133,8 @@ router.get("/clippers", async (req, res) => {
       ${periodViewsExpr} AS period_views,
       ((${periodViewsExpr})::bigint * ${rateExpr} / ${rateViewsExpr}) AS period_earned_cents,
       ${periodShortCountExpr} AS period_short_count,
+      ${periodShortCountByPlatform("youtube")} AS period_short_count_youtube,
+      ${periodShortCountByPlatform("tiktok")} AS period_short_count_tiktok,
       ${hasDatesExpr} AS has_history,
       COALESCE(SUM(content.latest_views), 0) AS total_views,
       COUNT(content.id) AS short_count,

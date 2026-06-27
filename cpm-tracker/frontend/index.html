@@ -13,32 +13,40 @@
       <div>
         <a class="back-link" href="https://abdirizak-byte.github.io/ZXK/">← Back to zxkie.com</a>
         <h1>Shorts Payout Tracker</h1>
-        <p id="headerSub">Tracking 0 YouTube channels across your roster</p>
       </div>
       <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-        <select class="select-control" id="periodFilter">
-          <option value="all">Lifetime</option>
-          <option value="7">Last 7 days</option>
-          <option value="30" selected>Last 30 days</option>
-          <option value="90">Last 90 days</option>
-          <option value="365">Last 365 days</option>
-          <option value="custom">Custom range</option>
-        </select>
-        <div id="customRangeRow" style="display: none; align-items: center; gap: 8px;">
-          <input class="select-control" type="date" id="customStart" />
-          <span style="color: var(--muted);">to</span>
-          <input class="select-control" type="date" id="customEnd" />
-          <button class="btn btn-sm" id="customApplyBtn" type="button">Apply</button>
+        <div class="header-group">
+          <select class="select-control" id="periodFilter">
+            <option value="all">Lifetime</option>
+            <option value="7">Last 7 days</option>
+            <option value="30" selected>Last 30 days</option>
+            <option value="90">Last 90 days</option>
+            <option value="365">Last 365 days</option>
+            <option value="custom">Custom range</option>
+          </select>
+          <div id="customRangeRow" style="display: none; align-items: center; gap: 8px;">
+            <input class="select-control" type="date" id="customStart" />
+            <span style="color: var(--muted);">to</span>
+            <input class="select-control" type="date" id="customEnd" />
+            <button class="btn btn-sm" id="customApplyBtn" type="button">Apply</button>
+          </div>
         </div>
-        <button class="btn" id="editRateBtn" type="button">Rate: …</button>
-        <button class="btn" id="addClientBtn" type="button">+ Add Client</button>
-        <button class="btn btn-primary" id="addClipperBtn" type="button">+ Add Clipper</button>
-        <a class="btn" href="autofile.html" style="position: relative;">
-          ✨ Auto-File Clips
-          <span id="autofileBadge" style="display: none; position: absolute; top: -8px; right: -8px; background: var(--red); color: #fff; font-size: 10.5px; font-weight: 700; border-radius: 999px; padding: 1px 6px; line-height: 1.4;"></span>
-        </a>
-        <a class="btn" id="exportAllPayoutsBtn" href="/api/payouts/export">Export All Payouts</a>
-        <button class="btn" id="logoutBtn" type="button">Log Out</button>
+        <span class="header-divider"></span>
+        <div class="header-group">
+          <button class="btn" id="editRateBtn" type="button">Rate: …</button>
+          <button class="btn" id="addClientBtn" type="button">+ Add Client</button>
+          <button class="btn btn-primary" id="addClipperBtn" type="button">+ Add Clipper</button>
+        </div>
+        <span class="header-divider"></span>
+        <div class="header-group">
+          <a class="btn" href="autofile.html" style="position: relative;">
+            ✨ Auto-File Clips
+            <span id="autofileBadge" style="display: none; position: absolute; top: -8px; right: -8px; background: var(--red); color: #fff; font-size: 10.5px; font-weight: 700; border-radius: 999px; padding: 1px 6px; line-height: 1.4;"></span>
+          </a>
+          <a class="btn" id="exportAllPayoutsBtn" href="/api/payouts/export">Export All Payouts</a>
+        </div>
+        <span class="header-divider"></span>
+        <button class="btn btn-ghost" id="logoutBtn" type="button">Log Out</button>
       </div>
     </div>
 
@@ -376,12 +384,13 @@
       return `<tr class="detail-row"><td colspan="8">${shortsBody}${payoutsBody}</td></tr>`;
     }
 
-    function channelChipsHtml(channels, tiktokAccounts) {
+    function channelChipsHtml(clipperId, channels, tiktokAccounts) {
       const youtubeChips = (channels || []).map(
         (ch) => `
         <span class="channel-chip">
           ${ch.thumbnail_url ? `<img class="channel-avatar" src="${esc(ch.thumbnail_url)}" />` : ""}
           ${esc(ch.channel_title || ch.channel_handle || ch.channel_id)}
+          <button class="chip-disconnect-btn" type="button" title="Disconnect this account" data-clipper-id="${esc(clipperId)}" data-channel-id="${esc(ch.id)}" data-platform="youtube">×</button>
         </span>`
       );
       const tiktokChips = (tiktokAccounts || []).map(
@@ -389,6 +398,7 @@
         <span class="channel-chip channel-chip-tiktok">
           ${acc.thumbnail_url ? `<img class="channel-avatar" src="${esc(acc.thumbnail_url)}" />` : ""}
           ${esc(acc.display_name || acc.username || acc.account_id)}
+          <button class="chip-disconnect-btn" type="button" title="Disconnect this account" data-clipper-id="${esc(clipperId)}" data-channel-id="${esc(acc.id)}" data-platform="tiktok">×</button>
         </span>`
       );
       return `
@@ -418,8 +428,11 @@
             <div class="clipper-name">${esc(c.name)}</div>
             ${c.notes ? `<div class="clipper-notes">${esc(c.notes)}</div>` : ""}
           </td>
-          <td data-label="Channel(s)">${channelChipsHtml(c.channels, c.tiktok_accounts)}</td>
-          <td data-label="Shorts">${Number(c.period_short_count).toLocaleString()}</td>
+          <td data-label="Channel(s)">${channelChipsHtml(c.id, c.channels, c.tiktok_accounts)}</td>
+          <td data-label="Shorts">
+            ${Number(c.period_short_count).toLocaleString()}
+            ${platformBreakdownHtml(c.period_short_count_youtube, c.period_short_count_tiktok, (v) => v.toLocaleString())}
+          </td>
           <td data-label="Views">
             ${Number(c.period_views).toLocaleString()}
             ${platformBreakdownHtml(c.period_views_youtube, c.period_views_tiktok, (v) => v.toLocaleString())}
@@ -582,15 +595,11 @@
       const totalShorts = clippers.reduce((sum, c) => sum + Number(c.short_count), 0);
       const periodViews = clippers.reduce((sum, c) => sum + Number(c.period_views), 0);
       const totalPaid = clippers.reduce((sum, c) => sum + Number(c.paid_cents), 0);
-      const totalChannels = clippers.reduce((sum, c) => sum + (c.channels ? c.channels.length : 0), 0);
-      const totalTiktok = clippers.reduce((sum, c) => sum + (c.tiktok_accounts ? c.tiktok_accounts.length : 0), 0);
 
       document.getElementById("statClippers").textContent = clippers.length.toLocaleString();
       document.getElementById("statShorts").textContent = totalShorts.toLocaleString();
       document.getElementById("statViews").textContent = periodViews.toLocaleString();
       document.getElementById("statPaid").textContent = formatMoney(totalPaid);
-      document.getElementById("headerSub").textContent =
-        `Tracking ${totalChannels} YouTube channel${totalChannels === 1 ? "" : "s"} and ${totalTiktok} TikTok account${totalTiktok === 1 ? "" : "s"} across your roster`;
 
       const periodValue = document.getElementById("periodFilter").value;
       const periodLabel = PERIOD_LABELS[periodValue] || "Total Views";
@@ -800,6 +809,12 @@
       if (deletePayoutBtn) {
         e.stopPropagation();
         deletePayout(deletePayoutBtn.dataset.id, deletePayoutBtn.dataset.clipperId);
+        return;
+      }
+      const disconnectBtn = e.target.closest(".chip-disconnect-btn");
+      if (disconnectBtn) {
+        e.stopPropagation();
+        disconnectAccount(disconnectBtn.dataset.clipperId, disconnectBtn.dataset.channelId, disconnectBtn.dataset.platform);
         return;
       }
       const sortDirBtn = e.target.closest(".clip-sort-dir");
@@ -1109,6 +1124,18 @@
         await loadClippers();
       } catch (err) {
         alert(`Failed to delete payout: ${err.message}`);
+      }
+    }
+
+    async function disconnectAccount(clipperId, channelId, platform) {
+      if (!confirm("Disconnect this account from the clipper? Its tracked clips will stay, just unlinked.")) return;
+      const path = platform === "tiktok" ? "tiktok-accounts" : "channels";
+      try {
+        await apiFetch(`/api/clippers/${clipperId}/${path}/${channelId}`, { method: "DELETE" });
+        detailCache.delete(clipperId);
+        await loadClippers();
+      } catch (err) {
+        alert(`Failed to disconnect account: ${err.message}`);
       }
     }
 
