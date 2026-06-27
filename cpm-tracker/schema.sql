@@ -122,3 +122,17 @@ CREATE TABLE users (
   client_id      UUID REFERENCES clients(id) ON DELETE CASCADE,
   created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Nightly auto-file job pre-computes these so the admin's Auto-File Clips page
+-- loads instantly instead of waiting on live OpenAI calls. One row per
+-- still-unreviewed short; deleted once the short gets assigned (by the nightly
+-- apply flow or a manual assign), so COUNT(*) is the "needs review" badge.
+CREATE TABLE autofile_suggestions (
+  id                      UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  short_id                UUID NOT NULL UNIQUE REFERENCES shorts(id) ON DELETE CASCADE,
+  channel_id              UUID NOT NULL REFERENCES youtube_channels(id) ON DELETE CASCADE,
+  suggested_clipper_id    UUID REFERENCES clippers(id) ON DELETE SET NULL,
+  suggested_clipper_name  TEXT,
+  created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX idx_autofile_suggestions_channel ON autofile_suggestions(channel_id);

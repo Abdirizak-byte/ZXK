@@ -124,6 +124,7 @@
             <strong>${esc(c.channel_title || c.channel_handle || c.id)}</strong>
             <span style="color: var(--muted); font-size: 12.5px; margin-left: 8px;">
               ${c.clipper_count} clippers linked · ${c.unassigned_count} unassigned clips
+              ${Number(c.ready_count) > 0 ? `· <span style="color: var(--green); font-weight: 600;">${c.ready_count} ready for review</span>` : ""}
             </span>
           </span>
           <button class="btn btn-sm btn-primary preview-btn" data-id="${esc(c.id)}" type="button">Preview AI Suggestions</button>

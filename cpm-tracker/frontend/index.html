@@ -33,7 +33,11 @@
         <button class="btn" id="editRateBtn" type="button">Rate: …</button>
         <button class="btn" id="addClientBtn" type="button">+ Add Client</button>
         <button class="btn btn-primary" id="addClipperBtn" type="button">+ Add Clipper</button>
-        <a class="btn" href="autofile.html">✨ Auto-File Clips</a>
+        <a class="btn" href="autofile.html" style="position: relative;">
+          ✨ Auto-File Clips
+          <span id="autofileBadge" style="display: none; position: absolute; top: -8px; right: -8px; background: var(--red); color: #fff; font-size: 10.5px; font-weight: 700; border-radius: 999px; padding: 1px 6px; line-height: 1.4;"></span>
+        </a>
+        <a class="btn" id="exportAllPayoutsBtn" href="/api/payouts/export">Export All Payouts</a>
         <button class="btn" id="logoutBtn" type="button">Log Out</button>
       </div>
     </div>
@@ -60,13 +64,24 @@
     <div class="panel">
       <div class="panel-head">
         <h2>Clippers</h2>
-        <span style="color: var(--muted); font-size: 12.5px;" id="lastUpdatedLabel"></span>
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <input class="select-control" id="clipperSearch" type="search" placeholder="Search clippers…" style="width: 200px;" />
+          <span style="color: var(--muted); font-size: 12.5px;" id="lastUpdatedLabel"></span>
+        </div>
       </div>
       <div id="historyNotice" style="display: none; padding: 10px 18px; background: var(--amber-soft); color: var(--amber); font-size: 12.5px; font-weight: 600; border-bottom: 1px solid var(--border);"></div>
+      <div id="bulkActionsBar" style="display: none; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 18px; background: var(--accent-soft); border-bottom: 1px solid var(--border);">
+        <span id="bulkSelectedLabel" style="font-size: 12.5px; font-weight: 600; color: var(--accent);"></span>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-sm" id="bulkClearBtn" type="button">Clear</button>
+          <button class="btn btn-sm btn-primary" id="bulkMarkPaidBtn" type="button">Bulk Mark Paid</button>
+        </div>
+      </div>
       <div class="table-scroll">
       <table>
         <thead>
           <tr>
+            <th style="width: 30px;"><input type="checkbox" id="selectAllClippers" /></th>
             <th data-sort="name">Name</th>
             <th>Channel(s)</th>
             <th data-sort="period_short_count" id="shortsColumnHeader">Shorts</th>
@@ -145,7 +160,7 @@
   <!-- Mark Paid Modal -->
   <div class="modal-overlay" id="markPaidOverlay">
     <div class="modal-card">
-      <h3>Record Payout</h3>
+      <h3 id="markPaidTitle">Record Payout</h3>
       <p class="sub" id="markPaidSub">Mark an amount as paid to this clipper.</p>
       <div class="field-label">Amount (USD)</div>
       <input id="markPaidAmount" type="number" min="0" step="0.01" placeholder="0.00" />
@@ -155,6 +170,22 @@
       <div class="modal-actions">
         <button class="btn" id="markPaidCancel" type="button">Cancel</button>
         <button class="btn btn-primary" id="markPaidSubmit" type="button">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bulk Mark Paid Modal -->
+  <div class="modal-overlay" id="bulkPaidOverlay">
+    <div class="modal-card" style="width: min(520px, 92vw);">
+      <h3>Bulk Mark Paid</h3>
+      <p class="sub">Amounts default to each clipper's earnings for the selected period. Adjust as needed before saving.</p>
+      <div id="bulkPaidRows" style="max-height: 320px; overflow-y: auto;"></div>
+      <div class="field-label">Note (optional, applied to all)</div>
+      <input id="bulkPaidNote" placeholder="e.g. Weekly payout via PayPal" />
+      <div class="modal-error" id="bulkPaidError"></div>
+      <div class="modal-actions">
+        <button class="btn" id="bulkPaidCancel" type="button">Cancel</button>
+        <button class="btn btn-primary" id="bulkPaidSubmit" type="button">Save All</button>
       </div>
     </div>
   </div>
@@ -186,11 +217,13 @@
     let sortDir = "desc";
     let activeClipperId = null;
     let activeClientId = null;
+    let activePayoutId = null;
     const detailCache = new Map();
     let payoutRate = { rate_views: 100000, rate_cents: 500 };
     let clipSortKey = "views";
     let clipSortDir = "desc";
     const collapsedClients = new Set();
+    const selectedClipperIds = new Set();
 
     function sortShorts(shorts) {
       const copy = [...shorts];
@@ -275,14 +308,47 @@
         </div>`;
     }
 
+    function payoutsListHtml(payouts, clipperId, clipperName) {
+      const rows = (payouts || [])
+        .map(
+          (p) => `
+        <div class="payout-row" style="display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border);">
+          <div>
+            <span class="amount">${formatMoney(p.amount_cents)}</span>
+            <span style="color: var(--muted); font-size: 12px; margin-left: 8px;">${formatDate(p.paid_at)}</span>
+            ${p.note ? `<div style="color: var(--muted); font-size: 12px; margin-top: 2px;">${esc(p.note)}</div>` : ""}
+          </div>
+          <div class="row-actions">
+            <button class="btn btn-sm edit-payout-btn" data-id="${esc(p.id)}" data-clipper-id="${esc(clipperId)}" data-name="${esc(clipperName)}" data-amount="${p.amount_cents}" data-note="${esc(p.note || "")}" type="button">Edit</button>
+            <button class="btn btn-sm btn-danger delete-payout-btn" data-id="${esc(p.id)}" data-clipper-id="${esc(clipperId)}" type="button">Delete</button>
+          </div>
+        </div>`
+        )
+        .join("");
+      return `
+        <div class="panel" style="margin-top: 14px; box-shadow: none;">
+          <div class="panel-head">
+            <h2 style="font-size: 13px;">Payout History</h2>
+            ${
+              payouts && payouts.length
+                ? `<a class="btn btn-sm" href="/api/payouts/export?clipper_id=${encodeURIComponent(clipperId)}">Export CSV</a>`
+                : ""
+            }
+          </div>
+          <div style="padding: 4px 18px 14px;">
+            ${rows || `<div style="padding: 10px 0; color: var(--muted); font-size: 12.5px;">No payouts recorded yet.</div>`}
+          </div>
+        </div>`;
+    }
+
     function clipperDetailRowHtml(c) {
       const detail = detailCache.get(c.id);
       const periodActive = document.getElementById("periodFilter").value !== "all";
-      let body;
+      let shortsBody;
       if (!detail) {
-        body = `<div style="padding:16px; color:var(--muted);">Loading…</div>`;
+        shortsBody = `<div style="padding:16px; color:var(--muted);">Loading…</div>`;
       } else if (!detail.shorts || detail.shorts.length === 0) {
-        body = periodActive
+        shortsBody = periodActive
           ? `<div class="empty-state">
               <h3>No Shorts in this range</h3>
               <p>None of this clipper's tracked Shorts were posted in the selected period.${detail.pending_date_count ? ` ${detail.pending_date_count} clip(s) are still pending a post-date lookup and aren't counted yet.` : ""}</p>
@@ -304,9 +370,10 @@
             </select>
             <button class="btn btn-sm clip-sort-dir" type="button">${clipSortDir === "desc" ? "High → Low" : "Low → High"}</button>
           </div>`;
-        body = `${pendingNote}${platformSummaryBarHtml(detail.shorts, detail.rate_views, detail.rate_cents)}${sortBar}<div class="shorts-grid">${sortShorts(detail.shorts).map((s) => shortCardHtml(s, detail.channel_clippers)).join("")}</div>`;
+        shortsBody = `${pendingNote}${platformSummaryBarHtml(detail.shorts, detail.rate_views, detail.rate_cents)}${sortBar}<div class="shorts-grid">${sortShorts(detail.shorts).map((s) => shortCardHtml(s, detail.channel_clippers)).join("")}</div>`;
       }
-      return `<tr class="detail-row"><td colspan="7">${body}</td></tr>`;
+      const payoutsBody = detail ? payoutsListHtml(detail.payouts, c.id, c.name) : "";
+      return `<tr class="detail-row"><td colspan="8">${shortsBody}${payoutsBody}</td></tr>`;
     }
 
     function channelChipsHtml(channels, tiktokAccounts) {
@@ -346,6 +413,7 @@
     function clipperRowHtml(c) {
       return `
         <tr class="clipper-row" data-id="${esc(c.id)}">
+          <td><input type="checkbox" class="clipper-select-checkbox" data-id="${esc(c.id)}" data-name="${esc(c.name)}" data-earned="${c.period_earned_cents}" ${selectedClipperIds.has(c.id) ? "checked" : ""} /></td>
           <td data-label="Name">
             <div class="clipper-name">${esc(c.name)}</div>
             ${c.notes ? `<div class="clipper-notes">${esc(c.notes)}</div>` : ""}
@@ -372,9 +440,16 @@
       `;
     }
 
+    function searchedClippers() {
+      const query = document.getElementById("clipperSearch").value.trim().toLowerCase();
+      if (!query) return clippers;
+      return clippers.filter((c) => c.name.toLowerCase().includes(query));
+    }
+
     function sortedClippers() {
-      if (!sortKey) return clippers;
-      const copy = [...clippers];
+      const filtered = searchedClippers();
+      if (!sortKey) return filtered;
+      const copy = [...filtered];
       copy.sort((a, b) => {
         let av = a[sortKey];
         let bv = b[sortKey];
@@ -420,7 +495,7 @@
       const collapsed = collapsedClients.has(client.id);
       return `
         <tr class="client-group-header" data-client-id="${esc(client.id)}">
-          <td colspan="7">
+          <td colspan="8">
             <div class="client-group-bar">
               <button class="client-collapse-toggle" type="button" data-client-id="${esc(client.id)}">
                 <span class="client-collapse-arrow">${collapsed ? "▸" : "▾"}</span> ${esc(client.name)}
@@ -438,7 +513,7 @@
       const collapsed = collapsedClients.has("__none__");
       let html = `
         <tr class="client-group-header client-group-header-none">
-          <td colspan="7">
+          <td colspan="8">
             <div class="client-group-bar">
               <button class="client-collapse-toggle" type="button" data-client-id="__none__">
                 <span class="client-collapse-arrow">${collapsed ? "▸" : "▾"}</span> No Client
@@ -462,6 +537,7 @@
         tbody.innerHTML = list
           .map((c) => clipperRowHtml(c) + (expandedId === c.id ? clipperDetailRowHtml(c) : ""))
           .join("");
+        updateBulkBar();
         return;
       }
 
@@ -478,6 +554,7 @@
         html += noClientGroupHtml(noClient);
       }
       tbody.innerHTML = html;
+      updateBulkBar();
     }
 
     const PERIOD_LABELS = {
@@ -581,6 +658,83 @@
       detailCache.clear();
       loadClippers();
     });
+    document.getElementById("clipperSearch").addEventListener("input", () => {
+      renderTable();
+    });
+
+    document.getElementById("selectAllClippers").addEventListener("change", (e) => {
+      const visible = sortedClippers();
+      if (e.target.checked) {
+        visible.forEach((c) => selectedClipperIds.add(c.id));
+      } else {
+        visible.forEach((c) => selectedClipperIds.delete(c.id));
+      }
+      renderTable();
+      updateBulkBar();
+    });
+
+    document.getElementById("bulkClearBtn").addEventListener("click", () => {
+      selectedClipperIds.clear();
+      renderTable();
+      updateBulkBar();
+    });
+
+    const bulkPaidOverlay = document.getElementById("bulkPaidOverlay");
+    document.getElementById("bulkMarkPaidBtn").addEventListener("click", () => {
+      const selected = clippers.filter((c) => selectedClipperIds.has(c.id));
+      const rowsHtml = selected
+        .map(
+          (c) => `
+        <div style="display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border);">
+          <span style="flex: 1; font-weight: 600; font-size: 13px;">${esc(c.name)}</span>
+          <input type="number" min="0" step="0.01" class="bulk-paid-amount" data-clipper-id="${esc(c.id)}" data-clipper-name="${esc(c.name)}" value="${(Number(c.period_earned_cents) / 100).toFixed(2)}" style="width: 110px;" />
+        </div>`
+        )
+        .join("");
+      document.getElementById("bulkPaidRows").innerHTML = rowsHtml;
+      document.getElementById("bulkPaidNote").value = "";
+      document.getElementById("bulkPaidError").style.display = "none";
+      bulkPaidOverlay.classList.add("open");
+    });
+    document.getElementById("bulkPaidCancel").addEventListener("click", () => {
+      bulkPaidOverlay.classList.remove("open");
+    });
+    document.getElementById("bulkPaidSubmit").addEventListener("click", async () => {
+      const errorBox = document.getElementById("bulkPaidError");
+      const note = document.getElementById("bulkPaidNote").value.trim();
+      const inputs = Array.from(document.querySelectorAll(".bulk-paid-amount"));
+      const entries = inputs
+        .map((input) => ({
+          clipperId: input.dataset.clipperId,
+          amount: parseFloat(input.value),
+        }))
+        .filter((entry) => entry.amount > 0);
+      if (entries.length === 0) {
+        errorBox.textContent = "Enter at least one amount greater than $0.";
+        errorBox.style.display = "block";
+        return;
+      }
+      try {
+        for (const entry of entries) {
+          await apiFetch("/api/payouts", {
+            method: "POST",
+            body: JSON.stringify({
+              clipper_id: entry.clipperId,
+              amount_cents: Math.round(entry.amount * 100),
+              note: note || null,
+            }),
+          });
+        }
+        bulkPaidOverlay.classList.remove("open");
+        selectedClipperIds.clear();
+        detailCache.clear();
+        await loadClippers();
+        updateBulkBar();
+      } catch (err) {
+        errorBox.textContent = err.message || "Failed to save one or more payouts.";
+        errorBox.style.display = "block";
+      }
+    });
 
     async function toggleExpand(id) {
       if (expandedId === id) {
@@ -630,6 +784,24 @@
         deleteClipper(delBtn.dataset.id, delBtn.dataset.name);
         return;
       }
+      const editPayoutBtn = e.target.closest(".edit-payout-btn");
+      if (editPayoutBtn) {
+        e.stopPropagation();
+        openEditPayoutModal(
+          editPayoutBtn.dataset.id,
+          editPayoutBtn.dataset.clipperId,
+          editPayoutBtn.dataset.name,
+          Number(editPayoutBtn.dataset.amount),
+          editPayoutBtn.dataset.note
+        );
+        return;
+      }
+      const deletePayoutBtn = e.target.closest(".delete-payout-btn");
+      if (deletePayoutBtn) {
+        e.stopPropagation();
+        deletePayout(deletePayoutBtn.dataset.id, deletePayoutBtn.dataset.clipperId);
+        return;
+      }
       const sortDirBtn = e.target.closest(".clip-sort-dir");
       if (sortDirBtn) {
         e.stopPropagation();
@@ -637,11 +809,38 @@
         renderTable();
         return;
       }
+      if (e.target.closest(".clipper-select-checkbox")) {
+        e.stopPropagation();
+        return;
+      }
       const row = e.target.closest(".clipper-row");
       if (row) toggleExpand(row.dataset.id);
     });
 
+    function updateBulkBar() {
+      const bar = document.getElementById("bulkActionsBar");
+      const count = selectedClipperIds.size;
+      if (count === 0) {
+        bar.style.display = "none";
+      } else {
+        bar.style.display = "flex";
+        document.getElementById("bulkSelectedLabel").textContent = `${count} clipper${count === 1 ? "" : "s"} selected`;
+      }
+      const selectAll = document.getElementById("selectAllClippers");
+      if (selectAll) {
+        const visible = sortedClippers();
+        selectAll.checked = visible.length > 0 && visible.every((c) => selectedClipperIds.has(c.id));
+      }
+    }
+
     document.getElementById("clippersTbody").addEventListener("change", async (e) => {
+      const checkbox = e.target.closest(".clipper-select-checkbox");
+      if (checkbox) {
+        if (checkbox.checked) selectedClipperIds.add(checkbox.dataset.id);
+        else selectedClipperIds.delete(checkbox.dataset.id);
+        updateBulkBar();
+        return;
+      }
       const sortKeySelect = e.target.closest(".clip-sort-key");
       if (sortKeySelect) {
         clipSortKey = sortKeySelect.value;
@@ -847,13 +1046,25 @@
       }
     });
 
-    // Mark Paid modal
+    // Mark Paid modal (also doubles as the Edit Payout modal)
     const markPaidOverlay = document.getElementById("markPaidOverlay");
     function openMarkPaidModal(clipperId, name) {
       activeClipperId = clipperId;
+      activePayoutId = null;
+      document.getElementById("markPaidTitle").textContent = "Record Payout";
       document.getElementById("markPaidSub").textContent = `Mark an amount as paid to ${name}.`;
       document.getElementById("markPaidAmount").value = "";
       document.getElementById("markPaidNote").value = "";
+      document.getElementById("markPaidError").style.display = "none";
+      markPaidOverlay.classList.add("open");
+    }
+    function openEditPayoutModal(payoutId, clipperId, name, amountCents, note) {
+      activeClipperId = clipperId;
+      activePayoutId = payoutId;
+      document.getElementById("markPaidTitle").textContent = "Edit Payout";
+      document.getElementById("markPaidSub").textContent = `Editing a payout for ${name}.`;
+      document.getElementById("markPaidAmount").value = (amountCents / 100).toFixed(2);
+      document.getElementById("markPaidNote").value = note || "";
       document.getElementById("markPaidError").style.display = "none";
       markPaidOverlay.classList.add("open");
     }
@@ -870,17 +1081,36 @@
         return;
       }
       try {
-        await apiFetch("/api/payouts", {
-          method: "POST",
-          body: JSON.stringify({ clipper_id: activeClipperId, amount_cents: Math.round(amount * 100), note: note || null }),
-        });
+        if (activePayoutId) {
+          await apiFetch(`/api/payouts/${activePayoutId}`, {
+            method: "PATCH",
+            body: JSON.stringify({ amount_cents: Math.round(amount * 100), note: note || null }),
+          });
+        } else {
+          await apiFetch("/api/payouts", {
+            method: "POST",
+            body: JSON.stringify({ clipper_id: activeClipperId, amount_cents: Math.round(amount * 100), note: note || null }),
+          });
+        }
         markPaidOverlay.classList.remove("open");
+        detailCache.delete(activeClipperId);
         await loadClippers();
       } catch (err) {
-        errorBox.textContent = err.message || "Failed to record payout.";
+        errorBox.textContent = err.message || "Failed to save payout.";
         errorBox.style.display = "block";
       }
     });
+
+    async function deletePayout(payoutId, clipperId) {
+      if (!confirm("Delete this payout? This cannot be undone.")) return;
+      try {
+        await apiFetch(`/api/payouts/${payoutId}`, { method: "DELETE" });
+        detailCache.delete(clipperId);
+        await loadClippers();
+      } catch (err) {
+        alert(`Failed to delete payout: ${err.message}`);
+      }
+    }
 
     // Payout rate
     function renderRateButton() {
@@ -941,9 +1171,26 @@
       window.location.href = "/login.html";
     });
 
+    async function refreshAutofileBadge() {
+      try {
+        const { count } = await apiFetch("/api/autofile/pending-count");
+        const badge = document.getElementById("autofileBadge");
+        if (count > 0) {
+          badge.textContent = count > 99 ? "99+" : String(count);
+          badge.style.display = "inline-block";
+        } else {
+          badge.style.display = "none";
+        }
+      } catch (err) {
+        console.error("Failed to load autofile pending count:", err.message);
+      }
+    }
+
     fetchRate();
     loadClippers();
+    refreshAutofileBadge();
     setInterval(() => loadClippers({ silent: true }), 45000);
+    setInterval(refreshAutofileBadge, 45000);
   </script>
 </body>
 </html>

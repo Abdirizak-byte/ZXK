@@ -398,6 +398,9 @@ router.patch("/shorts/:id/assign", requireAdmin, async (req, res) => {
   if (result.rows.length === 0) {
     return res.status(404).json({ error: "Short not found" });
   }
+  if (clipper_id) {
+    await pool.query("DELETE FROM autofile_suggestions WHERE short_id = $1", [req.params.id]);
+  }
   res.json(result.rows[0]);
 });
 

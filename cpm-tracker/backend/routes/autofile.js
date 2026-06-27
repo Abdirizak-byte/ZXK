@@ -18,6 +18,15 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+router.get("/autofile/pending-count", requireAdmin, async (req, res) => {
+  const { rows } = await pool.query(
+    `SELECT COUNT(*) AS count FROM autofile_suggestions a
+     JOIN shorts s ON s.id = a.short_id
+     WHERE s.assigned_clipper_id IS NULL`
+  );
+  res.json({ count: Number(rows[0].count) });
+});
+
 router.get("/autofile/channels", requireAdmin, async (req, res) => {
   let startDate, endDate;
   try {
@@ -42,10 +51,12 @@ router.get("/autofile/channels", requireAdmin, async (req, res) => {
     SELECT
       yc.id, yc.channel_title, yc.channel_handle, yc.thumbnail_url,
       COUNT(DISTINCT cyc.clipper_id) AS clipper_count,
-      COUNT(s.id) FILTER (WHERE s.assigned_clipper_id IS NULL AND ${dateCond}) AS unassigned_count
+      COUNT(s.id) FILTER (WHERE s.assigned_clipper_id IS NULL AND ${dateCond}) AS unassigned_count,
+      COUNT(DISTINCT a.short_id) FILTER (WHERE s.assigned_clipper_id IS NULL AND ${dateCond}) AS ready_count
     FROM youtube_channels yc
     JOIN clipper_youtube_channels cyc ON cyc.channel_id = yc.id
     LEFT JOIN shorts s ON s.channel_id = yc.id
+    LEFT JOIN autofile_suggestions a ON a.short_id = s.id
     GROUP BY yc.id
     HAVING COUNT(DISTINCT cyc.clipper_id) > 1 AND COUNT(s.id) FILTER (WHERE s.assigned_clipper_id IS NULL AND ${dateCond}) > 0
     ORDER BY unassigned_count DESC
@@ -112,17 +123,33 @@ router.post("/autofile/channels/:channelId/preview", requireAdmin, async (req, r
   targetParams.push(MAX_TARGETS_PER_PREVIEW);
 
   const { rows: targets } = await pool.query(
-    `SELECT id, title, thumbnail_url FROM shorts
-     WHERE channel_id = $1 AND assigned_clipper_id IS NULL AND thumbnail_url IS NOT NULL${targetDateCond}
-     ORDER BY latest_views DESC LIMIT $${targetParams.length}`,
+    `SELECT s.id, s.title, s.thumbnail_url, a.suggested_clipper_id AS cached_clipper_id, a.suggested_clipper_name AS cached_clipper_name
+     FROM shorts s
+     LEFT JOIN autofile_suggestions a ON a.short_id = s.id
+     WHERE s.channel_id = $1 AND s.assigned_clipper_id IS NULL AND s.thumbnail_url IS NOT NULL${targetDateCond}
+     ORDER BY (a.id IS NOT NULL) DESC, s.latest_views DESC LIMIT $${targetParams.length}`,
     targetParams
   );
 
   const suggestions = [];
-  for (const [i, target] of targets.entries()) {
+  let liveCallCount = 0;
+  for (const target of targets) {
+    // Nightly job already classified this one — reuse it instead of burning an OpenAI call.
+    if (target.cached_clipper_name !== null && target.cached_clipper_name !== undefined) {
+      suggestions.push({
+        short_id: target.id,
+        title: target.title,
+        thumbnail_url: target.thumbnail_url,
+        suggested_clipper_id: target.cached_clipper_id,
+        suggested_clipper_name: target.cached_clipper_name,
+      });
+      continue;
+    }
+
     // Paced to stay under OpenAI's per-minute token budget — each call carries
     // several reference images, so bursting them all at once trips the limit.
-    if (i > 0) await sleep(CALL_SPACING_MS);
+    if (liveCallCount > 0) await sleep(CALL_SPACING_MS);
+    liveCallCount += 1;
 
     let suggestedName = "uncertain";
     try {
@@ -133,13 +160,23 @@ router.post("/autofile/channels/:channelId/preview", requireAdmin, async (req, r
     const matchedName = [...clippersWithExamples].find(
       (name) => name.toLowerCase() === suggestedName.toLowerCase().trim()
     );
+    const suggestedClipperId = matchedName ? clipperByName.get(matchedName) : null;
     suggestions.push({
       short_id: target.id,
       title: target.title,
       thumbnail_url: target.thumbnail_url,
-      suggested_clipper_id: matchedName ? clipperByName.get(matchedName) : null,
+      suggested_clipper_id: suggestedClipperId,
       suggested_clipper_name: matchedName || null,
     });
+    await pool.query(
+      `INSERT INTO autofile_suggestions (short_id, channel_id, suggested_clipper_id, suggested_clipper_name)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (short_id) DO UPDATE SET
+         suggested_clipper_id = EXCLUDED.suggested_clipper_id,
+         suggested_clipper_name = EXCLUDED.suggested_clipper_name,
+         created_at = NOW()`,
+      [target.id, channelId, suggestedClipperId, matchedName || null]
+    );
   }
 
   res.json({
@@ -163,6 +200,9 @@ router.post("/autofile/apply", requireAdmin, async (req, res) => {
       a.short_id,
     ]);
     applied += result.rowCount;
+    if (a.clipper_id) {
+      await pool.query("DELETE FROM autofile_suggestions WHERE short_id = $1", [a.short_id]);
+    }
   }
   res.json({ applied });
 });

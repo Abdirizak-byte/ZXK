@@ -14,6 +14,7 @@ const { requireAuth, requireAuthPage } = require("./middleware/requireAuth");
 const { startShortsSync } = require("./jobs/shorts-sync");
 const { startDateBackfill } = require("./jobs/date-backfill");
 const { startTiktokSync } = require("./jobs/tiktok-sync");
+const { startAutofileNightly } = require("./jobs/autofile-nightly");
 
 const app = express();
 
@@ -50,4 +51,5 @@ app.listen(PORT, () => {
   startShortsSync();
   startDateBackfill();
   startTiktokSync();
+  startAutofileNightly();
 });
