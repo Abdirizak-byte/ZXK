@@ -549,3 +549,72 @@ tr.client-group-header-none td {
 @media (max-width: 600px) {
   .stats { grid-template-columns: 1fr; }
 }
+
+/* Below this width the data table becomes a stack of cards instead of
+   forcing horizontal scrolling — each row turns into a labeled list. */
+@media (max-width: 880px) {
+  .page {
+    padding: 20px 14px 48px;
+  }
+  .page-header {
+    flex-direction: column;
+  }
+  .table-scroll {
+    overflow-x: visible;
+  }
+  table {
+    min-width: 0;
+    width: 100%;
+  }
+  thead {
+    display: none;
+  }
+  tbody tr {
+    display: block;
+    border-bottom: 8px solid var(--bg);
+  }
+  tbody tr:last-child {
+    border-bottom: none;
+  }
+  tbody td {
+    display: block;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  tbody td:last-child {
+    border-bottom: none;
+  }
+  tbody td[data-label] {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    text-align: right;
+  }
+  tbody td[data-label]::before {
+    content: attr(data-label);
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--muted);
+    text-align: left;
+    flex-shrink: 0;
+  }
+  tbody td[data-label="Channel(s)"],
+  tbody td[data-label="Actions"] {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: left;
+  }
+  .row-actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+  .shorts-sort-bar {
+    flex-wrap: wrap;
+  }
+  .shorts-grid {
+    grid-template-columns: 1fr;
+  }
+}

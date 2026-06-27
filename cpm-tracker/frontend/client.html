@@ -218,18 +218,18 @@
     function clipperRowHtml(c) {
       return `
         <tr>
-          <td>
+          <td data-label="Name">
             <div class="clipper-name">${esc(c.name)}</div>
             ${c.notes ? `<div class="clipper-notes">${esc(c.notes)}</div>` : ""}
           </td>
-          <td>${channelChipsHtml(c.channels, c.tiktok_accounts)}</td>
-          <td>${Number(c.period_short_count).toLocaleString()}</td>
-          <td>${Number(c.period_views).toLocaleString()}</td>
-          <td class="amount green">${formatMoney(c.period_earned_cents)}</td>
-          <td class="amount">${formatMoney(c.paid_cents)}</td>
+          <td data-label="Channel(s)">${channelChipsHtml(c.channels, c.tiktok_accounts)}</td>
+          <td data-label="Shorts">${Number(c.period_short_count).toLocaleString()}</td>
+          <td data-label="Views">${Number(c.period_views).toLocaleString()}</td>
+          <td class="amount green" data-label="Earned">${formatMoney(c.period_earned_cents)}</td>
+          <td class="amount" data-label="Paid">${formatMoney(c.paid_cents)}</td>
           ${
             isAdmin
-              ? `<td>
+              ? `<td data-label="Actions">
                   <div class="row-actions">
                     <button class="btn btn-sm mark-paid-btn" data-id="${esc(c.id)}" data-name="${esc(c.name)}" type="button">Mark Paid</button>
                   </div>
