@@ -506,6 +506,36 @@ tr.client-group-header-none td {
   background: var(--surface);
 }
 
+.spinner {
+  display: inline-block;
+  width: 15px;
+  height: 15px;
+  border: 2px solid var(--border-strong);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  vertical-align: middle;
+  margin-right: 8px;
+  animation: spin 0.7s linear infinite;
+}
+.spinner-lg {
+  width: 26px;
+  height: 26px;
+  border-width: 3px;
+  margin-right: 0;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.loading-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 24px 14px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
 .empty-state {
   padding: 48px 18px;
   text-align: center;

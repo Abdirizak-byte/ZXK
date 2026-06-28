@@ -134,11 +134,14 @@
     async function loadChannels() {
       const query = currentPeriodQuery();
       if (query === null) return;
+      document.getElementById("channelsEmpty").style.display = "none";
+      document.getElementById("channelsList").innerHTML = `<div class="loading-row"><span class="spinner"></span> Loading channels…</div>`;
       try {
         const channels = await apiFetch(`/api/autofile/channels${query}`);
         document.getElementById("channelsEmpty").style.display = channels.length === 0 ? "block" : "none";
         document.getElementById("channelsList").innerHTML = channels.map(channelRowHtml).join("");
       } catch (err) {
+        document.getElementById("channelsList").innerHTML = "";
         console.error("Failed to load channels:", err.message);
       }
     }
@@ -195,7 +198,12 @@
       const errorBox = document.getElementById("previewError");
       errorBox.style.display = "none";
       document.getElementById("previewPanel").style.display = "block";
-      document.getElementById("previewGrid").innerHTML = `<p style="padding: 14px; color: var(--muted);">Asking the AI about each clip… this can take a minute.</p>`;
+      document.getElementById("previewTitle").textContent = "Suggestions";
+      document.getElementById("previewGrid").innerHTML = `
+        <div class="loading-row" style="grid-column: 1 / -1; flex-direction: column; padding: 40px 14px;">
+          <span class="spinner spinner-lg"></span>
+          <p style="margin: 14px 0 0;">Asking the AI about each clip… this can take a minute.</p>
+        </div>`;
       const query = currentPeriodQuery() || "";
       try {
         const data = await apiFetch(`/api/autofile/channels/${channelId}/preview${query}`, { method: "POST" });
@@ -217,7 +225,13 @@
     document.getElementById("channelsList").addEventListener("click", (e) => {
       const btn = e.target.closest(".preview-btn");
       if (!btn) return;
-      previewChannel(btn.dataset.id);
+      const originalText = btn.textContent;
+      btn.disabled = true;
+      btn.innerHTML = `<span class="spinner"></span> Loading…`;
+      previewChannel(btn.dataset.id).finally(() => {
+        btn.disabled = false;
+        btn.textContent = originalText;
+      });
     });
 
     document.getElementById("cancelPreviewBtn").addEventListener("click", () => {
