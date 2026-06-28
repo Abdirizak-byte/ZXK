@@ -3,12 +3,19 @@ const ytdlp = require("../lib/ytdlp");
 const { runWithConcurrency } = require("../lib/concurrencyPool");
 
 const BATCH_SIZE = 40;
+// Actual yt-dlp process concurrency is enforced globally (see
+// lib/processLimiter.js) since this job's processes share memory headroom
+// with shorts-sync and tiktok-sync. This just controls how many requests
+// can be queued waiting for a slot at once.
 const BACKFILL_CONCURRENCY = 8;
 const IDLE_DELAY_MS = 60000;
 
 async function backfillBatch() {
+  // Newest-discovered first: a clip posted five minutes ago getting its
+  // real date confirmed matters far more than working through the older
+  // backlog in strict arrival order.
   const { rows } = await pool.query(
-    "SELECT id, video_id FROM shorts WHERE published_at_estimated = true ORDER BY created_at ASC LIMIT $1",
+    "SELECT id, video_id FROM shorts WHERE published_at_estimated = true ORDER BY created_at DESC LIMIT $1",
     [BATCH_SIZE]
   );
   if (rows.length === 0) return false;

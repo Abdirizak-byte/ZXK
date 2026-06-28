@@ -50,11 +50,13 @@ async function syncAllAccounts() {
 }
 
 async function startTiktokSync() {
-  cron.schedule("*/20 * * * *", () => {
+  // Offset 7 minutes from shorts-sync's :00/:20/:40 schedule so the two
+  // jobs' yt-dlp processes don't both burst at the same moment.
+  cron.schedule("7-59/20 * * * *", () => {
     console.log("[tiktok-sync] running scheduled sync");
     syncAllAccounts();
   });
-  console.log("[tiktok-sync] scheduled every 20 minutes (*/20 * * * *)");
+  console.log("[tiktok-sync] scheduled every 20 minutes, offset 7 min (7-59/20 * * * *)");
 }
 
 module.exports = { startTiktokSync, syncAllAccounts, syncAccount };

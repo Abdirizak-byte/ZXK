@@ -1,17 +1,21 @@
 const { execFile } = require("child_process");
+const { withProcessSlot } = require("./processLimiter");
 
 const YTDLP_BIN = process.env.YTDLP_PATH || "yt-dlp";
 const TIMEOUT_MS = 30000;
 
 function run(args) {
-  return new Promise((resolve, reject) => {
-    execFile(YTDLP_BIN, args, { timeout: TIMEOUT_MS, maxBuffer: 1024 * 1024 * 50 }, (err, stdout, stderr) => {
-      if (err) {
-        return reject(new Error(`yt-dlp failed: ${err.message}${stderr ? ` | ${stderr.slice(0, 300)}` : ""}`));
-      }
-      resolve(stdout);
-    });
-  });
+  return withProcessSlot(
+    () =>
+      new Promise((resolve, reject) => {
+        execFile(YTDLP_BIN, args, { timeout: TIMEOUT_MS, maxBuffer: 1024 * 1024 * 50 }, (err, stdout, stderr) => {
+          if (err) {
+            return reject(new Error(`yt-dlp failed: ${err.message}${stderr ? ` | ${stderr.slice(0, 300)}` : ""}`));
+          }
+          resolve(stdout);
+        });
+      })
+  );
 }
 
 async function runJson(args) {
