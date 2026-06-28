@@ -10,11 +10,12 @@ const { syncAllChannels } = require("../jobs/shorts-sync");
 const router = wrapAsync(express.Router());
 
 // Manual on-demand refresh, for when an admin doesn't want to wait for the
-// 20-minute cron in shorts-sync.js. Runs synchronously so the button can show
-// a spinner until it's actually done — fine since it's an admin-only action.
+// 20-minute cron in shorts-sync.js. Responds immediately and runs in the
+// background — syncing every channel can take longer than is comfortable to
+// block a request on, especially once there are more than a handful.
 router.post("/sync/refresh-youtube", requireAdmin, async (req, res) => {
-  await syncAllChannels();
-  res.json({ ok: true });
+  res.json({ ok: true, started: true });
+  syncAllChannels().catch((err) => console.error("[shorts-sync] manual refresh failed:", err.message));
 });
 
 // Non-admins can only ever see their own client's roster — force the

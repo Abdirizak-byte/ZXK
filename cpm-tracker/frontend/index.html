@@ -1308,17 +1308,24 @@
     document.getElementById("refreshYoutubeBtn").addEventListener("click", async () => {
       const btn = document.getElementById("refreshYoutubeBtn");
       btn.disabled = true;
-      btn.textContent = "↻ Refreshing…";
+      btn.textContent = "↻ Refresh started…";
       try {
         await apiFetch("/api/sync/refresh-youtube", { method: "POST" });
-        detailCache.clear();
-        await loadClippers();
       } catch (err) {
-        alert(`Failed to refresh clips: ${err.message}`);
-      } finally {
+        alert(`Failed to start refresh: ${err.message}`);
         btn.disabled = false;
         btn.textContent = "↻ Refresh Clips";
+        return;
       }
+      // Runs in the background server-side — poll a couple of times rather
+      // than blocking the button on however long every channel takes.
+      detailCache.clear();
+      setTimeout(() => loadClippers({ silent: true }), 8000);
+      setTimeout(() => loadClippers({ silent: true }), 20000);
+      setTimeout(() => {
+        btn.disabled = false;
+        btn.textContent = "↻ Refresh Clips";
+      }, 3000);
     });
 
     const editRateOverlay = document.getElementById("editRateOverlay");

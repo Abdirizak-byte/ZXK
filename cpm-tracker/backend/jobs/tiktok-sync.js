@@ -1,6 +1,9 @@
 const cron = require("node-cron");
 const pool = require("../db");
 const tiktok = require("../lib/tiktok");
+const { runWithConcurrency } = require("../lib/concurrencyPool");
+
+const SYNC_CONCURRENCY = 4;
 
 async function syncAccount(account) {
   const input = account.username || account.account_id;
@@ -37,14 +40,13 @@ async function syncAccount(account) {
 
 async function syncAllAccounts() {
   const { rows: accounts } = await pool.query("SELECT * FROM tiktok_accounts");
-  for (const account of accounts) {
+  await runWithConcurrency(accounts, SYNC_CONCURRENCY, async (account) => {
     try {
       await syncAccount(account);
     } catch (err) {
       console.error(`[tiktok-sync] failed to sync account ${account.username || account.account_id}:`, err.message);
     }
-    await new Promise((r) => setTimeout(r, 1500));
-  }
+  });
 }
 
 async function startTiktokSync() {

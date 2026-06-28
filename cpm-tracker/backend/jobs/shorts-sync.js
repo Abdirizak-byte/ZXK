@@ -1,6 +1,9 @@
 const cron = require("node-cron");
 const pool = require("../db");
 const ytdlp = require("../lib/ytdlp");
+const { runWithConcurrency } = require("../lib/concurrencyPool");
+
+const SYNC_CONCURRENCY = 4;
 
 async function syncChannel(channel) {
   const input = channel.channel_handle || channel.channel_id;
@@ -37,14 +40,13 @@ async function syncChannel(channel) {
 
 async function syncAllChannels() {
   const { rows: channels } = await pool.query("SELECT * FROM youtube_channels");
-  for (const channel of channels) {
+  await runWithConcurrency(channels, SYNC_CONCURRENCY, async (channel) => {
     try {
       await syncChannel(channel);
     } catch (err) {
       console.error(`[shorts-sync] failed to sync channel ${channel.channel_id}:`, err.message);
     }
-    await new Promise((r) => setTimeout(r, 1500));
-  }
+  });
 }
 
 async function startShortsSync() {
