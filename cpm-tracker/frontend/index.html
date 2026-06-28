@@ -169,6 +169,23 @@
     </div>
   </div>
 
+  <!-- Set Client Modal -->
+  <div class="modal-overlay" id="setClientOverlay">
+    <div class="modal-card">
+      <h3>Assign to Client</h3>
+      <p class="sub" id="setClientSub">Links this clipper's accounts to a client so they're grouped together.</p>
+      <div class="field-label">Client</div>
+      <select id="setClientSelect" class="select-control" style="width: 100%;">
+        <option value="">No Client</option>
+      </select>
+      <div class="modal-error" id="setClientError"></div>
+      <div class="modal-actions">
+        <button class="btn" id="setClientCancel" type="button">Cancel</button>
+        <button class="btn btn-primary" id="setClientSubmit" type="button">Save</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Mark Paid Modal -->
   <div class="modal-overlay" id="markPaidOverlay">
     <div class="modal-card">
@@ -449,6 +466,7 @@
           <td data-label="Actions">
             <div class="row-actions">
               <button class="btn btn-sm add-channel-btn" data-id="${esc(c.id)}" type="button">+ Account</button>
+              <button class="btn btn-sm set-client-btn" data-id="${esc(c.id)}" data-name="${esc(c.name)}" type="button">Client</button>
               <button class="btn btn-sm mark-paid-btn" data-id="${esc(c.id)}" data-name="${esc(c.name)}" type="button">Mark Paid</button>
               <button class="btn btn-sm btn-danger delete-clipper-btn" data-id="${esc(c.id)}" data-name="${esc(c.name)}" type="button">Remove</button>
             </div>
@@ -791,6 +809,12 @@
         openMarkPaidModal(payBtn.dataset.id, payBtn.dataset.name);
         return;
       }
+      const setClientBtn = e.target.closest(".set-client-btn");
+      if (setClientBtn) {
+        e.stopPropagation();
+        openSetClientModal(setClientBtn.dataset.id, setClientBtn.dataset.name);
+        return;
+      }
       const delBtn = e.target.closest(".delete-clipper-btn");
       if (delBtn) {
         e.stopPropagation();
@@ -1061,6 +1085,58 @@
         await loadClippers();
       } catch (err) {
         errorBox.textContent = err.message || "Failed to add account.";
+        errorBox.style.display = "block";
+      }
+    });
+
+    // Set Client modal — links every account this clipper has linked to the
+    // chosen client, since `clients` only ever group clippers indirectly
+    // through the channels/accounts they own (see clipperClientIds above).
+    const setClientOverlay = document.getElementById("setClientOverlay");
+    function openSetClientModal(clipperId, name) {
+      activeClipperId = clipperId;
+      const c = clippers.find((cl) => cl.id === clipperId);
+      const select = document.getElementById("setClientSelect");
+      select.innerHTML =
+        `<option value="">No Client</option>` +
+        clients.map((cl) => `<option value="${esc(cl.id)}">${esc(cl.name)}</option>`).join("");
+      const currentIds = c ? [...clipperClientIds(c)] : [];
+      select.value = currentIds.length === 1 ? currentIds[0] : "";
+      document.getElementById("setClientSub").textContent =
+        currentIds.length > 1
+          ? `${name}'s accounts currently belong to more than one client — saving will move all of them to the client you pick below.`
+          : `Links ${name}'s linked accounts to a client so they're grouped together.`;
+      document.getElementById("setClientError").style.display = "none";
+      setClientOverlay.classList.add("open");
+    }
+    document.getElementById("setClientCancel").addEventListener("click", () => {
+      setClientOverlay.classList.remove("open");
+    });
+    document.getElementById("setClientSubmit").addEventListener("click", async () => {
+      const clientId = document.getElementById("setClientSelect").value || null;
+      const errorBox = document.getElementById("setClientError");
+      const c = clippers.find((cl) => cl.id === activeClipperId);
+      if (!c) return;
+      const channelIds = (c.channels || []).map((ch) => ch.id);
+      const tiktokIds = (c.tiktok_accounts || []).map((a) => a.id);
+      if (channelIds.length === 0 && tiktokIds.length === 0) {
+        errorBox.textContent = "This clipper has no linked accounts to assign yet — add one first via \"+ Account\".";
+        errorBox.style.display = "block";
+        return;
+      }
+      try {
+        await Promise.all([
+          ...channelIds.map((id) =>
+            apiFetch(`/api/channels/${id}/client`, { method: "PATCH", body: JSON.stringify({ client_id: clientId }) })
+          ),
+          ...tiktokIds.map((id) =>
+            apiFetch(`/api/tiktok-accounts/${id}/client`, { method: "PATCH", body: JSON.stringify({ client_id: clientId }) })
+          ),
+        ]);
+        setClientOverlay.classList.remove("open");
+        await loadClippers();
+      } catch (err) {
+        errorBox.textContent = err.message || "Failed to assign client.";
         errorBox.style.display = "block";
       }
     });
