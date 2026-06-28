@@ -43,6 +43,10 @@
             ✨ Auto-File Clips
             <span id="autofileBadge" style="display: none; position: absolute; top: -8px; right: -8px; background: var(--red); color: #fff; font-size: 10.5px; font-weight: 700; border-radius: 999px; padding: 1px 6px; line-height: 1.4;"></span>
           </a>
+          <a class="btn" href="applications.html" style="position: relative;">
+            Applications
+            <span id="applicationsBadge" style="display: none; position: absolute; top: -8px; right: -8px; background: var(--red); color: #fff; font-size: 10.5px; font-weight: 700; border-radius: 999px; padding: 1px 6px; line-height: 1.4;"></span>
+          </a>
           <a class="btn" id="exportAllPayoutsBtn" href="/api/payouts/export">Export All Payouts</a>
         </div>
         <span class="header-divider"></span>
@@ -1213,11 +1217,28 @@
       }
     }
 
+    async function refreshApplicationsBadge() {
+      try {
+        const { count } = await apiFetch("/api/applications/pending-count");
+        const badge = document.getElementById("applicationsBadge");
+        if (count > 0) {
+          badge.textContent = count > 99 ? "99+" : String(count);
+          badge.style.display = "inline-block";
+        } else {
+          badge.style.display = "none";
+        }
+      } catch (err) {
+        console.error("Failed to load applications pending count:", err.message);
+      }
+    }
+
     fetchRate();
     loadClippers();
     refreshAutofileBadge();
+    refreshApplicationsBadge();
     setInterval(() => loadClippers({ silent: true }), 45000);
     setInterval(refreshAutofileBadge, 45000);
+    setInterval(refreshApplicationsBadge, 45000);
   </script>
 </body>
 </html>

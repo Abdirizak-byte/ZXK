@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Apply to Clip | Shorts Payout Tracker</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --surface: #ffffff;
+      --border: #e5e7eb;
+      --border-strong: #d1d5db;
+      --text: #0f172a;
+      --muted: #6b7280;
+      --accent: #4f46e5;
+      --green: #16a34a;
+      --green-soft: #ecfdf5;
+      --red: #dc2626;
+      --red-soft: #fef2f2;
+      --shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 8px rgba(15, 23, 42, 0.04);
+      --radius: 10px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .card-wrap { width: 100%; max-width: 460px; }
+    .signup-card {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 32px 28px;
+    }
+    .signup-card h1 {
+      font-size: 20px;
+      font-weight: 700;
+      margin: 0 0 4px;
+    }
+    .signup-card p.sub {
+      margin: 0 0 24px;
+      color: var(--muted);
+      font-size: 13.5px;
+    }
+    .field-label {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .field-hint {
+      font-size: 12px;
+      color: var(--muted);
+      margin: -2px 0 6px;
+    }
+    .signup-card input,
+    .signup-card textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border-strong);
+      font-size: 14px;
+      font-family: inherit;
+      margin-bottom: 16px;
+    }
+    .signup-card textarea {
+      resize: vertical;
+      min-height: 70px;
+    }
+    .signup-card input:focus,
+    .signup-card textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .two-col > div { margin-bottom: 0; }
+    .signup-btn {
+      width: 100%;
+      padding: 11px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--accent);
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .signup-btn:hover {
+      background: #4338ca;
+    }
+    .signup-btn:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+    .signup-error {
+      display: none;
+      margin-top: 14px;
+      padding: 10px 12px;
+      background: var(--red-soft);
+      color: var(--red);
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .signup-success {
+      display: none;
+      text-align: center;
+      padding: 8px 0;
+    }
+    .signup-success .check {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: var(--green-soft);
+      color: var(--green);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      margin: 0 auto 16px;
+    }
+    .signup-success h2 {
+      font-size: 17px;
+      margin: 0 0 6px;
+    }
+    .signup-success p {
+      color: var(--muted);
+      font-size: 13.5px;
+      margin: 0;
+    }
+    .back-link {
+      display: block;
+      text-align: center;
+      margin-top: 18px;
+      color: var(--muted);
+      font-size: 13px;
+      text-decoration: none;
+    }
+    .back-link:hover {
+      color: var(--accent);
+    }
+  </style>
+</head>
+<body>
+  <div class="card-wrap">
+    <form class="signup-card" id="applyForm">
+      <h1>Apply to Clip</h1>
+      <p class="sub">Tell us a bit about yourself. An admin will review your application and approve your account.</p>
+
+      <div class="field-label">Your Name</div>
+      <input type="text" id="name" name="name" placeholder="Jordan Smith" required autofocus>
+
+      <div class="field-label">Email</div>
+      <input type="email" id="email" name="email" placeholder="you@example.com" required>
+
+      <div class="two-col">
+        <div>
+          <div class="field-label">YouTube Handle</div>
+          <input type="text" id="youtube_handle" name="youtube_handle" placeholder="@yourchannel">
+        </div>
+        <div>
+          <div class="field-label">TikTok Handle</div>
+          <input type="text" id="tiktok_handle" name="tiktok_handle" placeholder="@yourhandle">
+        </div>
+      </div>
+      <div class="field-hint">Provide at least one — whichever account(s) you clip on.</div>
+
+      <div class="field-label">Anything else? (optional)</div>
+      <textarea id="notes" name="notes" placeholder="Which creator do you clip for, how long have you been clipping, etc."></textarea>
+
+      <button type="submit" class="signup-btn" id="applyBtn">Submit Application</button>
+      <div class="signup-error" id="applyError"></div>
+    </form>
+
+    <div class="signup-card signup-success" id="successCard" style="display: none;">
+      <div class="check">✓</div>
+      <h2>Application received</h2>
+      <p>An admin will review it and approve your account soon. No further action needed for now.</p>
+    </div>
+
+    <a class="back-link" href="https://abdirizak-byte.github.io/ZXK/">← Back to zxkie.com</a>
+  </div>
+
+  <script>
+    const form = document.getElementById("applyForm");
+    const errorBox = document.getElementById("applyError");
+    const submitBtn = document.getElementById("applyBtn");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      errorBox.style.display = "none";
+
+      const youtube_handle = document.getElementById("youtube_handle").value.trim();
+      const tiktok_handle = document.getElementById("tiktok_handle").value.trim();
+      if (!youtube_handle && !tiktok_handle) {
+        errorBox.textContent = "Provide at least one YouTube or TikTok handle.";
+        errorBox.style.display = "block";
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Submitting…";
+
+      try {
+        const res = await fetch("/api/apply", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: document.getElementById("name").value.trim(),
+            email: document.getElementById("email").value.trim(),
+            youtube_handle: youtube_handle || null,
+            tiktok_handle: tiktok_handle || null,
+            notes: document.getElementById("notes").value.trim() || null,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Submission failed");
+
+        form.style.display = "none";
+        document.getElementById("successCard").style.display = "block";
+      } catch (err) {
+        errorBox.textContent = err.message;
+        errorBox.style.display = "block";
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Submit Application";
+      }
+    });
+  </script>
+</body>
+</html>

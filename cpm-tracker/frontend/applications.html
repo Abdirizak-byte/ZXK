@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Clipper Applications — Shorts Payout Tracker</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="api.js"></script>
+  <style>
+    .application-card {
+      border-bottom: 1px solid var(--border);
+      padding: 16px 18px;
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .application-card:last-child {
+      border-bottom: none;
+    }
+    .application-info h3 {
+      margin: 0 0 4px;
+      font-size: 15px;
+      font-weight: 700;
+    }
+    .application-info .app-email {
+      color: var(--muted);
+      font-size: 12.5px;
+      margin-bottom: 8px;
+    }
+    .application-info .app-handles {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+    }
+    .application-info .app-notes {
+      font-size: 13px;
+      color: var(--text);
+      background: var(--bg);
+      border-radius: 8px;
+      padding: 8px 10px;
+      max-width: 480px;
+    }
+    .application-actions {
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+      flex-shrink: 0;
+    }
+    .app-warning {
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--amber);
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="page-header">
+      <div>
+        <a class="back-link" href="index.html">← Back to dashboard</a>
+        <h1>Clipper Applications</h1>
+        <p>Review applications submitted via the public sign-up page and approve them with one click.</p>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Pending</h2>
+        <span style="color: var(--muted); font-size: 12.5px;" id="pendingCountLabel"></span>
+      </div>
+      <div id="applicationsList"></div>
+      <div class="empty-state" id="emptyState" style="display: none;">
+        <h3>No pending applications</h3>
+        <p>New applications submitted from the public sign-up page will show up here.</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function esc(str) {
+      return String(str ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    }
+
+    function applicationCardHtml(a) {
+      const handles = [];
+      if (a.youtube_handle) handles.push(`<span class="channel-chip">YT: ${esc(a.youtube_handle)}</span>`);
+      if (a.tiktok_handle) handles.push(`<span class="channel-chip channel-chip-tiktok">TikTok: ${esc(a.tiktok_handle)}</span>`);
+
+      return `
+        <div class="application-card" data-id="${esc(a.id)}">
+          <div class="application-info">
+            <h3>${esc(a.name)}</h3>
+            <div class="app-email">${esc(a.email)} · applied ${new Date(a.created_at).toLocaleDateString()}</div>
+            <div class="app-handles">${handles.join("")}</div>
+            ${a.notes ? `<div class="app-notes">${esc(a.notes)}</div>` : ""}
+            <div class="app-warning" style="display: none;"></div>
+          </div>
+          <div class="application-actions">
+            <button class="btn btn-sm btn-danger reject-btn" type="button">Reject</button>
+            <button class="btn btn-sm btn-primary approve-btn" type="button">Approve</button>
+          </div>
+        </div>`;
+    }
+
+    async function loadApplications() {
+      try {
+        const apps = await apiFetch("/api/applications?status=pending");
+        document.getElementById("emptyState").style.display = apps.length === 0 ? "block" : "none";
+        document.getElementById("applicationsList").innerHTML = apps.map(applicationCardHtml).join("");
+        document.getElementById("pendingCountLabel").textContent = `${apps.length} pending`;
+      } catch (err) {
+        console.error("Failed to load applications:", err.message);
+      }
+    }
+
+    document.getElementById("applicationsList").addEventListener("click", async (e) => {
+      const card = e.target.closest(".application-card");
+      if (!card) return;
+      const id = card.dataset.id;
+
+      const approveBtn = e.target.closest(".approve-btn");
+      const rejectBtn = e.target.closest(".reject-btn");
+      if (!approveBtn && !rejectBtn) return;
+
+      const buttons = card.querySelectorAll("button");
+      buttons.forEach((b) => (b.disabled = true));
+
+      try {
+        if (approveBtn) {
+          const result = await apiFetch(`/api/applications/${id}/approve`, { method: "POST" });
+          if (result.warnings && result.warnings.length) {
+            const warnBox = card.querySelector(".app-warning");
+            warnBox.textContent = `Clipper created, but: ${result.warnings.join("; ")} — link manually via "+ Account" on the dashboard.`;
+            warnBox.style.display = "block";
+            buttons.forEach((b) => (b.disabled = true));
+            setTimeout(loadApplications, 4000);
+            return;
+          }
+          card.remove();
+        } else if (rejectBtn) {
+          if (!confirm(`Reject ${card.querySelector("h3").textContent}'s application?`)) {
+            buttons.forEach((b) => (b.disabled = false));
+            return;
+          }
+          await apiFetch(`/api/applications/${id}/reject`, { method: "POST" });
+          card.remove();
+        }
+        const remaining = document.querySelectorAll(".application-card").length;
+        document.getElementById("pendingCountLabel").textContent = `${remaining} pending`;
+        document.getElementById("emptyState").style.display = remaining === 0 ? "block" : "none";
+      } catch (err) {
+        alert(`Failed: ${err.message}`);
+        buttons.forEach((b) => (b.disabled = false));
+      }
+    });
+
+    loadApplications();
+  </script>
+</body>
+</html>

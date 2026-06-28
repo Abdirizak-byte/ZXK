@@ -136,3 +136,20 @@ CREATE TABLE autofile_suggestions (
   created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX idx_autofile_suggestions_channel ON autofile_suggestions(channel_id);
+
+-- Public self-registration: a prospective clipper fills out /register.html
+-- (no login required) and lands here as 'pending'. Approving creates the
+-- real clippers row and attempts to auto-link the submitted handles.
+CREATE TABLE clipper_applications (
+  id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name            TEXT NOT NULL,
+  email           TEXT NOT NULL,
+  youtube_handle  TEXT,
+  tiktok_handle   TEXT,
+  notes           TEXT,
+  status          TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+  review_notes    TEXT,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  reviewed_at     TIMESTAMPTZ
+);
+CREATE INDEX idx_clipper_applications_status ON clipper_applications(status);
