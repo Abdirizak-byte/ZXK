@@ -1,8 +1,12 @@
 const express = require("express");
+const crypto = require("crypto");
 const pool = require("../db");
 const wrapAsync = require("../lib/wrapAsync");
 const { requireAdmin } = require("../middleware/requireAuth");
 const { linkYoutubeChannel, linkTiktokAccount } = require("../lib/clipperLinking");
+const { hashPassword } = require("../lib/auth");
+const { generatePassword } = require("../lib/credentials");
+const { sendClipperCredentialsEmail } = require("../lib/mailer");
 
 // /apply is public (mounted before the requireAuth gate in server.js) — a
 // prospective clipper has no account yet, so it can't require a session.
@@ -74,6 +78,27 @@ adminRouter.post("/applications/:id/approve", requireAdmin, async (req, res) => 
       await linkTiktokAccount(clipper.id, app.tiktok_handle);
     } catch (err) {
       linkWarnings.push(`TikTok (${app.tiktok_handle}): ${err.message}`);
+    }
+  }
+
+  // Create their login and email the credentials. Best-effort, same as the
+  // handle linking above — a clipper row already exists by this point, so a
+  // failure here shouldn't block the approval; the admin can create/reset
+  // their login by hand from the users table if needed.
+  const password = generatePassword();
+  const salt = crypto.randomBytes(16).toString("hex");
+  try {
+    await pool.query(
+      `INSERT INTO users (email, password_hash, password_salt, role, clipper_id)
+       VALUES ($1, $2, $3, 'clipper', $4)`,
+      [app.email, hashPassword(password, salt), salt, clipper.id]
+    );
+    await sendClipperCredentialsEmail({ name: app.name, email: app.email, password });
+  } catch (err) {
+    if (err.code === "23505") {
+      linkWarnings.push(`A login already exists for ${app.email} — no new account was created.`);
+    } else {
+      linkWarnings.push(`Clipper was created, but the login email could not be sent: ${err.message}`);
     }
   }
 

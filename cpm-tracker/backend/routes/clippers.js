@@ -10,9 +10,17 @@ const router = wrapAsync(express.Router());
 
 // Non-admins can only ever see their own client's roster — force the
 // client_id filter to their own, regardless of what was requested.
+// Clipper-role users aren't viewing through a client lens at all (they
+// see their own data unfiltered by client), so this returns null for them.
 function scopedClientId(req) {
   if (req.authUser.role === "admin") return req.query.client_id || null;
+  if (req.authUser.role === "clipper") return null;
   return req.authUser.client_id;
+}
+
+// Clipper-role users can only ever see their own clipper record.
+function scopedClipperId(req) {
+  return req.authUser.role === "clipper" ? req.authUser.clipper_id : null;
 }
 
 async function attachChannels(clippers) {
@@ -60,11 +68,13 @@ router.get("/clippers", async (req, res) => {
 
   const rate = await getRate();
   const clientId = scopedClientId(req);
+  const clipperId = scopedClipperId(req);
 
-  const params = [rate.cents, rate.views, clientId];
+  const params = [rate.cents, rate.views, clientId, clipperId];
   const rateExpr = "$1";
   const rateViewsExpr = "$2";
   const clientExpr = "$3::uuid";
+  const clipperIdExpr = "$4::uuid";
   let dateCond = null;
   let hasDatesExpr = "true";
 
@@ -156,7 +166,7 @@ router.get("/clippers", async (req, res) => {
       WHERE paid_at >= $${prevMonthStartIdx} AND paid_at <= $${prevMonthEndIdx}
       GROUP BY clipper_id
     ) pm ON pm.clipper_id = c.id
-    WHERE ${clientExpr} IS NULL OR EXISTS (
+    WHERE (${clientExpr} IS NULL OR EXISTS (
       SELECT 1 FROM clipper_youtube_channels cyc2
       JOIN youtube_channels yc2 ON yc2.id = cyc2.channel_id
       WHERE cyc2.clipper_id = c.id AND yc2.client_id = ${clientExpr}
@@ -164,7 +174,8 @@ router.get("/clippers", async (req, res) => {
       SELECT 1 FROM clipper_tiktok_accounts cta2
       JOIN tiktok_accounts ta2 ON ta2.id = cta2.account_id
       WHERE cta2.clipper_id = c.id AND ta2.client_id = ${clientExpr}
-    )
+    ))
+    AND (${clipperIdExpr} IS NULL OR c.id = ${clipperIdExpr})
     GROUP BY c.id, p.paid_cents, pm.prev_month_paid_cents
     ORDER BY c.created_at DESC
   `,
@@ -195,8 +206,14 @@ router.get("/clippers/:id", async (req, res) => {
     return res.status(404).json({ error: "Clipper not found" });
   }
   const clipper = clipperResult.rows[0];
+
+  if (req.authUser.role === "clipper") {
+    if (req.authUser.clipper_id !== clipper.id) {
+      return res.status(403).json({ error: "Not authorized to view this clipper" });
+    }
+  }
   const clientId = scopedClientId(req);
-  if (req.authUser.role !== "admin" && !clientId) {
+  if (req.authUser.role === "client" && !clientId) {
     return res.status(403).json({ error: "Not authorized" });
   }
 

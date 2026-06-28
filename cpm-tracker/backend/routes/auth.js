@@ -19,7 +19,7 @@ router.post("/login", async (req, res) => {
   }
   const token = createSession(user);
   res.cookie(SESSION_COOKIE, token, COOKIE_OPTIONS);
-  res.json({ ok: true, role: user.role, client_id: user.client_id });
+  res.json({ ok: true, role: user.role, client_id: user.client_id, clipper_id: user.clipper_id });
 });
 
 router.post("/logout", async (req, res) => {
@@ -32,7 +32,7 @@ router.post("/logout", async (req, res) => {
 router.get("/me", async (req, res) => {
   const session = getSession(req.cookies && req.cookies[SESSION_COOKIE]);
   if (!session) return res.status(401).json({ error: "Not authenticated" });
-  res.json({ email: session.email, role: session.role, client_id: session.client_id });
+  res.json({ email: session.email, role: session.role, client_id: session.client_id, clipper_id: session.clipper_id });
 });
 
 module.exports = router;

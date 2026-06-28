@@ -112,14 +112,16 @@ CREATE TABLE settings (
 INSERT INTO settings (rate_views, rate_cents) VALUES (100000, 500);
 
 -- Dashboard logins. 'admin' sees and manages everything; 'client' is scoped to
--- one row in `clients` and can only view (never mutate) their own data.
+-- one row in `clients` and can only view (never mutate) their own data;
+-- 'clipper' is scoped to one row in `clippers` (their own personal dashboard).
 CREATE TABLE users (
   id             UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   email          TEXT NOT NULL UNIQUE,
   password_hash  TEXT NOT NULL,
   password_salt  TEXT NOT NULL,
-  role           TEXT NOT NULL DEFAULT 'client' CHECK (role IN ('admin', 'client')),
+  role           TEXT NOT NULL DEFAULT 'client' CHECK (role IN ('admin', 'client', 'clipper')),
   client_id      UUID REFERENCES clients(id) ON DELETE CASCADE,
+  clipper_id     UUID REFERENCES clippers(id) ON DELETE CASCADE,
   created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

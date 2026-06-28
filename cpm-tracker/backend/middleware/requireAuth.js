@@ -32,8 +32,11 @@ function requireAuthPage(req, res, next) {
   req.authUser = session;
 
   const isDashboardPage = req.path === "/" || req.path === "/index.html";
-  if (isDashboardPage && session.role !== "admin") {
+  if (isDashboardPage && session.role === "client") {
     return res.redirect(`/client.html?id=${session.client_id}`);
+  }
+  if (isDashboardPage && session.role === "clipper") {
+    return res.redirect(`/clipper.html?id=${session.clipper_id}`);
   }
   next();
 }

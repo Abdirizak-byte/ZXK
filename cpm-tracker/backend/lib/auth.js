@@ -3,7 +3,7 @@ const pool = require("../db");
 
 const SESSION_COOKIE = "cpm_session";
 
-// token -> { id, email, role, client_id }
+// token -> { id, email, role, client_id, clipper_id }
 const sessions = new Map();
 
 function hashPassword(password, salt) {
@@ -23,7 +23,7 @@ async function verifyCredentials(email, password) {
   if (candidateBuf.length !== expectedBuf.length) return null;
   if (!crypto.timingSafeEqual(candidateBuf, expectedBuf)) return null;
 
-  return { id: user.id, email: user.email, role: user.role, client_id: user.client_id };
+  return { id: user.id, email: user.email, role: user.role, client_id: user.client_id, clipper_id: user.clipper_id };
 }
 
 function createSession(user) {
