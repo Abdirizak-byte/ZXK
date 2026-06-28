@@ -29,9 +29,10 @@ async function clientStats(clientIds, startDate, endDate) {
   const accountToClient = new Map(accounts.map((a) => [a.id, a.client_id]));
 
   const { rows: shorts } = channelIds.length
-    ? await pool.query("SELECT channel_id, latest_views, published_at FROM shorts WHERE channel_id = ANY($1)", [
-        channelIds,
-      ])
+    ? await pool.query(
+        "SELECT channel_id, latest_views, published_at, published_at_estimated FROM shorts WHERE channel_id = ANY($1)",
+        [channelIds]
+      )
     : { rows: [] };
   const { rows: videos } = accountIds.length
     ? await pool.query(
@@ -53,7 +54,7 @@ async function clientStats(clientIds, startDate, endDate) {
   for (const s of shorts) {
     const st = stats.get(channelToClient.get(s.channel_id));
     if (!st) continue;
-    if (startDate && !s.published_at) st.has_history = false;
+    if (startDate && s.published_at_estimated) st.has_history = false;
     if (!isInPeriod(s.published_at, startDate, endDate)) continue;
     st.short_count += 1;
     st.total_views += Number(s.latest_views);

@@ -35,16 +35,21 @@ CREATE TABLE clipper_youtube_channels (
 );
 
 CREATE TABLE shorts (
-  id                   UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  channel_id           UUID NOT NULL REFERENCES youtube_channels(id) ON DELETE CASCADE,
-  video_id             TEXT NOT NULL UNIQUE,
-  title                TEXT,
-  thumbnail_url        TEXT,
-  latest_views         BIGINT NOT NULL DEFAULT 0,
-  published_at         TIMESTAMPTZ,
-  last_checked_at      TIMESTAMPTZ,
-  assigned_clipper_id  UUID REFERENCES clippers(id) ON DELETE SET NULL,
-  created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  id                      UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  channel_id              UUID NOT NULL REFERENCES youtube_channels(id) ON DELETE CASCADE,
+  video_id                TEXT NOT NULL UNIQUE,
+  title                   TEXT,
+  thumbnail_url           TEXT,
+  latest_views            BIGINT NOT NULL DEFAULT 0,
+  -- Set to NOW() (with published_at_estimated = true) the moment a clip is
+  -- first discovered, since YouTube's bulk channel listing doesn't include
+  -- upload dates. The date-backfill job confirms the real date in the
+  -- background and flips published_at_estimated back to false.
+  published_at            TIMESTAMPTZ,
+  published_at_estimated  BOOLEAN NOT NULL DEFAULT false,
+  last_checked_at         TIMESTAMPTZ,
+  assigned_clipper_id     UUID REFERENCES clippers(id) ON DELETE SET NULL,
+  created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE view_snapshots (

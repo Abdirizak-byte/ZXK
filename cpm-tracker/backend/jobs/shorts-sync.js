@@ -14,9 +14,12 @@ async function syncChannel(channel) {
 
     let shortId;
     if (existing.rows.length === 0) {
+      // published_at starts as an estimate (the moment we discovered it) so
+      // it counts toward period filters immediately instead of waiting on
+      // date-backfill.js to confirm the real upload date.
       const insert = await pool.query(
-        `INSERT INTO shorts (channel_id, video_id, title, thumbnail_url, latest_views, last_checked_at)
-         VALUES ($1, $2, $3, $4, $5, NOW())
+        `INSERT INTO shorts (channel_id, video_id, title, thumbnail_url, latest_views, published_at, published_at_estimated, last_checked_at)
+         VALUES ($1, $2, $3, $4, $5, NOW(), true, NOW())
          ON CONFLICT (video_id) DO NOTHING
          RETURNING id`,
         [channel.id, s.videoId, s.title, s.thumbnailUrl, s.views]

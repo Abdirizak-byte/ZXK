@@ -98,7 +98,7 @@ router.get("/clippers", async (req, res) => {
       const endParamIndex = params.length;
       dateCond += ` AND content.published_at <= $${endParamIndex}`;
     }
-    hasDatesExpr = "COALESCE(BOOL_AND(content.id IS NULL OR content.published_at IS NOT NULL), true)";
+    hasDatesExpr = "COALESCE(BOOL_AND(content.id IS NULL OR NOT content.published_at_estimated), true)";
   }
 
   const periodFilter = dateCond ? `FILTER (WHERE ${dateCond})` : "";
@@ -132,14 +132,14 @@ router.get("/clippers", async (req, res) => {
   const { rows } = await pool.query(
     `
     WITH content AS (
-      SELECT cyc.clipper_id, s.id, s.latest_views, s.published_at, 'youtube' AS platform
+      SELECT cyc.clipper_id, s.id, s.latest_views, s.published_at, s.published_at_estimated, 'youtube' AS platform
       FROM clipper_youtube_channels cyc
       JOIN youtube_channels yc ON yc.id = cyc.channel_id
       JOIN shorts s ON s.channel_id = cyc.channel_id
         AND (s.assigned_clipper_id IS NULL OR s.assigned_clipper_id = cyc.clipper_id)
       WHERE ${clientExpr} IS NULL OR yc.client_id = ${clientExpr}
       UNION ALL
-      SELECT cta.clipper_id, tv.id, tv.latest_views, tv.published_at, 'tiktok' AS platform
+      SELECT cta.clipper_id, tv.id, tv.latest_views, tv.published_at, false AS published_at_estimated, 'tiktok' AS platform
       FROM clipper_tiktok_accounts cta
       JOIN tiktok_accounts ta ON ta.id = cta.account_id
       JOIN tiktok_videos tv ON tv.account_id = cta.account_id
@@ -273,12 +273,13 @@ router.get("/clippers/:id", async (req, res) => {
     ...tiktokVideos.map((v) => ({ ...v, platform: "tiktok" })),
   ].sort((a, b) => Number(b.latest_views) - Number(a.latest_views));
 
-  const pendingDateCount = startDate
-    ? allShorts.filter((s) => !s.published_at).length
-    : 0;
   const shorts = startDate
     ? allShorts.filter((s) => isInPeriod(s.published_at, startDate, endDate))
     : allShorts;
+  // Clips in this set are already counted, just using an estimated date
+  // (the moment they were discovered) until date-backfill.js confirms the
+  // real one — informational, not an exclusion.
+  const pendingDateCount = startDate ? shorts.filter((s) => s.published_at_estimated).length : 0;
 
   let snapshotsByShort = new Map();
   const youtubeShortIds = shorts.filter((s) => s.platform === "youtube").map((s) => s.id);

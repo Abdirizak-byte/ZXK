@@ -395,7 +395,7 @@
         shortsBody = periodActive
           ? `<div class="empty-state">
               <h3>No Shorts in this range</h3>
-              <p>None of this clipper's tracked Shorts were posted in the selected period.${detail.pending_date_count ? ` ${detail.pending_date_count} clip(s) are still pending a post-date lookup and aren't counted yet.` : ""}</p>
+              <p>None of this clipper's tracked Shorts were posted in the selected period.${detail.pending_date_count ? ` ${detail.pending_date_count} clip(s) are using an estimated post date until the real one is confirmed.` : ""}</p>
             </div>`
           : `<div class="empty-state">
               <h3>No Shorts found yet</h3>
@@ -403,7 +403,7 @@
             </div>`;
       } else {
         const pendingNote = detail.pending_date_count
-          ? `<div style="padding:0 0 10px; color:var(--amber); font-size:12.5px; font-weight:600;">${detail.pending_date_count} more clip(s) are still pending a post-date lookup and may join this list once that finishes.</div>`
+          ? `<div style="padding:0 0 10px; color:var(--amber); font-size:12.5px; font-weight:600;">${detail.pending_date_count} clip(s) below are counted using an estimated post date until the real one is confirmed in the background.</div>`
           : "";
         const sortBar = `
           <div class="shorts-sort-bar">
@@ -649,7 +649,7 @@
       if (anyMissingDates) {
         notice.style.display = "block";
         notice.textContent =
-          "Still fetching post dates for some clips in the background — period totals may be undercounted until that finishes (new clippers with lots of Shorts can take a while).";
+          "Some clips are counted using an estimated post date while the real date is confirmed in the background — period totals may shift slightly until that finishes.";
       } else {
         notice.style.display = "none";
       }
