@@ -629,12 +629,10 @@
     }
 
     function updateStats() {
-      const totalShorts = clippers.reduce((sum, c) => sum + Number(c.short_count), 0);
       const periodViews = clippers.reduce((sum, c) => sum + Number(c.period_views), 0);
       const totalPaid = clippers.reduce((sum, c) => sum + Number(c.paid_cents), 0);
 
       document.getElementById("statClippers").textContent = clippers.length.toLocaleString();
-      document.getElementById("statShorts").textContent = totalShorts.toLocaleString();
       document.getElementById("statViews").textContent = periodViews.toLocaleString();
       document.getElementById("statPaid").textContent = formatMoney(totalPaid);
 
@@ -663,6 +661,19 @@
       }
     }
 
+    // A clip shared by multiple clippers is intentionally counted once per
+    // clipper in each clipper's own short_count, so summing that across
+    // clippers over-counts shared clips — this hits a dedicated endpoint
+    // that counts each tracked clip once, however many clippers share it.
+    async function fetchTrackedClipsCount(query) {
+      try {
+        const { count } = await apiFetch(`/api/stats/tracked-clips${query}`);
+        document.getElementById("statShorts").textContent = Number(count).toLocaleString();
+      } catch (err) {
+        console.error("Failed to load tracked clips count:", err.message);
+      }
+    }
+
     async function loadClippers({ silent } = {}) {
       try {
         const query = currentPeriodQuery();
@@ -670,6 +681,7 @@
         await fetchClients(query);
         clippers = await apiFetch(`/api/clippers${query}`);
         updateStats();
+        fetchTrackedClipsCount(query);
         renderTable();
         document.getElementById("lastUpdatedLabel").textContent = `Updated ${new Date().toLocaleTimeString()}`;
 

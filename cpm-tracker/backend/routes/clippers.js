@@ -33,6 +33,66 @@ function scopedClipperId(req) {
   return req.authUser.role === "clipper" ? req.authUser.clipper_id : null;
 }
 
+// A clip shared by multiple clippers (no single assigned_clipper_id) is
+// intentionally counted once per clipper in each clipper's own short_count
+// (everyone sharing a channel sees it in their own tally) — but that means
+// summing short_count across clippers over-counts shared clips. This gives
+// the true distinct count for headline stats like the dashboard's "Shorts
+// Tracked" card.
+router.get("/stats/tracked-clips", async (req, res) => {
+  let startDate, endDate;
+  try {
+    ({ startDate, endDate } = parsePeriod(req));
+  } catch (err) {
+    return res.status(err.status || 400).json({ error: err.message });
+  }
+  const clientId = scopedClientId(req);
+  const clipperId = scopedClipperId(req);
+
+  const params = [clientId, clipperId];
+  let dateCondYt = "";
+  let dateCondTt = "";
+  if (startDate) {
+    params.push(startDate.toISOString());
+    const startIdx = params.length;
+    dateCondYt = ` AND s.published_at >= $${startIdx}`;
+    dateCondTt = ` AND tv.published_at >= $${startIdx}`;
+    if (endDate) {
+      params.push(endDate.toISOString());
+      const endIdx = params.length;
+      dateCondYt += ` AND s.published_at <= $${endIdx}`;
+      dateCondTt += ` AND tv.published_at <= $${endIdx}`;
+    }
+  }
+
+  const { rows } = await pool.query(
+    `
+    SELECT
+      (SELECT COUNT(DISTINCT s.id)
+       FROM clipper_youtube_channels cyc
+       JOIN youtube_channels yc ON yc.id = cyc.channel_id
+       JOIN shorts s ON s.channel_id = cyc.channel_id
+       WHERE ($1::uuid IS NULL OR yc.client_id = $1::uuid)
+         AND ($2::uuid IS NULL OR cyc.clipper_id = $2::uuid)
+         ${dateCondYt}
+      ) AS youtube_count,
+      (SELECT COUNT(DISTINCT tv.id)
+       FROM clipper_tiktok_accounts cta
+       JOIN tiktok_accounts ta ON ta.id = cta.account_id
+       JOIN tiktok_videos tv ON tv.account_id = cta.account_id
+       WHERE ($1::uuid IS NULL OR ta.client_id = $1::uuid)
+         AND ($2::uuid IS NULL OR cta.clipper_id = $2::uuid)
+         ${dateCondTt}
+      ) AS tiktok_count
+    `,
+    params
+  );
+
+  const youtubeCount = Number(rows[0].youtube_count);
+  const tiktokCount = Number(rows[0].tiktok_count);
+  res.json({ count: youtubeCount + tiktokCount, youtube_count: youtubeCount, tiktok_count: tiktokCount });
+});
+
 async function attachChannels(clippers) {
   if (clippers.length === 0) return clippers;
   const ids = clippers.map((c) => c.id);
