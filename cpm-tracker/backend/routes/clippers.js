@@ -5,8 +5,17 @@ const { getRate } = require("../lib/settings");
 const { parsePeriod, isInPeriod } = require("../lib/period");
 const { requireAdmin } = require("../middleware/requireAuth");
 const { linkYoutubeChannel, linkTiktokAccount } = require("../lib/clipperLinking");
+const { syncAllChannels } = require("../jobs/shorts-sync");
 
 const router = wrapAsync(express.Router());
+
+// Manual on-demand refresh, for when an admin doesn't want to wait for the
+// 20-minute cron in shorts-sync.js. Runs synchronously so the button can show
+// a spinner until it's actually done — fine since it's an admin-only action.
+router.post("/sync/refresh-youtube", requireAdmin, async (req, res) => {
+  await syncAllChannels();
+  res.json({ ok: true });
+});
 
 // Non-admins can only ever see their own client's roster — force the
 // client_id filter to their own, regardless of what was requested.
@@ -335,6 +344,18 @@ router.post("/clippers", requireAdmin, async (req, res) => {
     "INSERT INTO clippers (name, notes) VALUES ($1, $2) RETURNING *",
     [name, notes || null]
   );
+  res.json(result.rows[0]);
+});
+
+router.patch("/clippers/:id", requireAdmin, async (req, res) => {
+  const { name, notes } = req.body;
+  if (!name) return res.status(400).json({ error: "name is required" });
+  const result = await pool.query("UPDATE clippers SET name = $1, notes = $2 WHERE id = $3 RETURNING *", [
+    name,
+    notes || null,
+    req.params.id,
+  ]);
+  if (result.rows.length === 0) return res.status(404).json({ error: "Clipper not found" });
   res.json(result.rows[0]);
 });
 

@@ -34,6 +34,7 @@
         <span class="header-divider"></span>
         <div class="header-group">
           <button class="btn" id="editRateBtn" type="button">Rate: …</button>
+          <button class="btn" id="refreshYoutubeBtn" type="button">↻ Refresh Clips</button>
           <button class="btn" id="addClientBtn" type="button">+ Add Client</button>
           <button class="btn btn-primary" id="addClipperBtn" type="button">+ Add Clipper</button>
         </div>
@@ -149,39 +150,53 @@
     </div>
   </div>
 
-  <!-- Add Channel Modal -->
-  <div class="modal-overlay" id="addChannelOverlay">
+  <!-- Edit Client Modal -->
+  <div class="modal-overlay" id="editClientOverlay">
     <div class="modal-card">
-      <h3>Add Account</h3>
-      <p class="sub">Link another tracked account to this clipper.</p>
-      <div class="field-label">Platform</div>
-      <select id="newChannelPlatform" class="select-control" style="width: 100%;">
-        <option value="youtube">YouTube Shorts</option>
-        <option value="tiktok">TikTok</option>
-      </select>
-      <div class="field-label">Account</div>
-      <input id="newChannelInput" placeholder="@handle, channel URL, or channel ID" />
-      <div class="modal-error" id="addChannelError"></div>
+      <h3>Edit Client</h3>
+      <p class="sub">Update this client's name and notes.</p>
+      <div class="field-label">Name</div>
+      <input id="editClientName" placeholder="e.g. Edward Solive" />
+      <div class="field-label">Notes (optional)</div>
+      <input id="editClientNotes" placeholder="e.g. contact info, deal terms" />
+      <div class="modal-error" id="editClientError"></div>
       <div class="modal-actions">
-        <button class="btn" id="addChannelCancel" type="button">Cancel</button>
-        <button class="btn btn-primary" id="addChannelSubmit" type="button">Add Account</button>
+        <button class="btn" id="editClientCancel" type="button">Cancel</button>
+        <button class="btn btn-primary" id="editClientSubmit" type="button">Save</button>
       </div>
     </div>
   </div>
 
-  <!-- Set Client Modal -->
-  <div class="modal-overlay" id="setClientOverlay">
-    <div class="modal-card">
-      <h3>Assign to Client</h3>
-      <p class="sub" id="setClientSub">Links this clipper's accounts to a client so they're grouped together.</p>
+  <!-- Edit Clipper Modal -->
+  <div class="modal-overlay" id="editClipperOverlay">
+    <div class="modal-card" style="width: min(560px, 92vw);">
+      <h3>Edit Clipper</h3>
+      <p class="sub">Update their info, client, and linked accounts.</p>
+      <div class="field-label">Name</div>
+      <input id="editClipperName" placeholder="e.g. Jordan" />
+      <div class="field-label">Bio / Notes</div>
+      <textarea id="editClipperNotes" rows="2" placeholder="e.g. contact info, deal terms"></textarea>
       <div class="field-label">Client</div>
-      <select id="setClientSelect" class="select-control" style="width: 100%;">
+      <select id="editClipperClient" class="select-control" style="width: 100%;">
         <option value="">No Client</option>
       </select>
-      <div class="modal-error" id="setClientError"></div>
+
+      <div class="field-label">Linked Accounts</div>
+      <div id="editClipperAccounts"></div>
+      <div style="display: flex; gap: 6px; margin-top: 6px;">
+        <select id="editClipperNewPlatform" class="select-control select-sm" style="flex: 0 0 auto;">
+          <option value="youtube">YouTube</option>
+          <option value="tiktok">TikTok</option>
+        </select>
+        <input id="editClipperNewAccountInput" placeholder="@handle, URL, or ID" style="flex: 1;" />
+        <button class="btn btn-sm" id="editClipperAddAccountBtn" type="button">+ Add</button>
+      </div>
+      <div class="modal-error" id="editClipperAccountError" style="display: none;"></div>
+
+      <div class="modal-error" id="editClipperError"></div>
       <div class="modal-actions">
-        <button class="btn" id="setClientCancel" type="button">Cancel</button>
-        <button class="btn btn-primary" id="setClientSubmit" type="button">Save</button>
+        <button class="btn" id="editClipperCancel" type="button">Cancel</button>
+        <button class="btn btn-primary" id="editClipperSubmit" type="button">Save</button>
       </div>
     </div>
   </div>
@@ -465,8 +480,7 @@
           <td class="amount" data-label="Paid">${formatMoney(c.paid_cents)}</td>
           <td data-label="Actions">
             <div class="row-actions">
-              <button class="btn btn-sm add-channel-btn" data-id="${esc(c.id)}" type="button">+ Account</button>
-              <button class="btn btn-sm set-client-btn" data-id="${esc(c.id)}" data-name="${esc(c.name)}" type="button">Client</button>
+              <button class="btn btn-sm edit-clipper-btn" data-id="${esc(c.id)}" type="button">Edit</button>
               <button class="btn btn-sm mark-paid-btn" data-id="${esc(c.id)}" data-name="${esc(c.name)}" type="button">Mark Paid</button>
               <button class="btn btn-sm btn-danger delete-clipper-btn" data-id="${esc(c.id)}" data-name="${esc(c.name)}" type="button">Remove</button>
             </div>
@@ -538,6 +552,7 @@
               <span class="client-group-stats">
                 ${count} clipper${count === 1 ? "" : "s"} · ${Number(client.short_count).toLocaleString()} shorts · ${Number(client.total_views).toLocaleString()} views · ${formatMoney(client.paid_cents)} paid
               </span>
+              <button class="btn btn-sm edit-client-btn" type="button" data-id="${esc(client.id)}" data-name="${esc(client.name)}" data-notes="${esc(client.notes || "")}">Edit</button>
               <a class="btn btn-sm" href="client.html?id=${esc(client.id)}">Open client page →</a>
             </div>
           </td>
@@ -797,22 +812,22 @@
         renderTable();
         return;
       }
-      const addBtn = e.target.closest(".add-channel-btn");
-      if (addBtn) {
+      const editBtn = e.target.closest(".edit-clipper-btn");
+      if (editBtn) {
         e.stopPropagation();
-        openAddChannelModal(addBtn.dataset.id);
+        openEditClipperModal(editBtn.dataset.id);
+        return;
+      }
+      const editClientBtn = e.target.closest(".edit-client-btn");
+      if (editClientBtn) {
+        e.stopPropagation();
+        openEditClientModal(editClientBtn.dataset.id, editClientBtn.dataset.name, editClientBtn.dataset.notes);
         return;
       }
       const payBtn = e.target.closest(".mark-paid-btn");
       if (payBtn) {
         e.stopPropagation();
         openMarkPaidModal(payBtn.dataset.id, payBtn.dataset.name);
-        return;
-      }
-      const setClientBtn = e.target.closest(".set-client-btn");
-      if (setClientBtn) {
-        e.stopPropagation();
-        openSetClientModal(setClientBtn.dataset.id, setClientBtn.dataset.name);
         return;
       }
       const delBtn = e.target.closest(".delete-clipper-btn");
@@ -1049,26 +1064,117 @@
       }
     });
 
-    // Add Channel modal
-    const addChannelOverlay = document.getElementById("addChannelOverlay");
-    function openAddChannelModal(clipperId) {
-      activeClipperId = clipperId;
-      document.getElementById("newChannelInput").value = "";
-      document.getElementById("newChannelPlatform").value = "youtube";
-      document.getElementById("addChannelError").style.display = "none";
-      addChannelOverlay.classList.add("open");
+    // Edit Client modal
+    const editClientOverlay = document.getElementById("editClientOverlay");
+    function openEditClientModal(clientId, name, notes) {
+      activeClientId = clientId;
+      document.getElementById("editClientName").value = name;
+      document.getElementById("editClientNotes").value = notes || "";
+      document.getElementById("editClientError").style.display = "none";
+      editClientOverlay.classList.add("open");
     }
-    document.getElementById("newChannelPlatform").addEventListener("change", (e) => {
-      document.getElementById("newChannelInput").placeholder =
+    document.getElementById("editClientCancel").addEventListener("click", () => {
+      editClientOverlay.classList.remove("open");
+    });
+    document.getElementById("editClientSubmit").addEventListener("click", async () => {
+      const name = document.getElementById("editClientName").value.trim();
+      const notes = document.getElementById("editClientNotes").value.trim();
+      const errorBox = document.getElementById("editClientError");
+      if (!name) {
+        errorBox.textContent = "Name is required.";
+        errorBox.style.display = "block";
+        return;
+      }
+      try {
+        await apiFetch(`/api/clients/${activeClientId}`, {
+          method: "PATCH",
+          body: JSON.stringify({ name, notes: notes || null }),
+        });
+        editClientOverlay.classList.remove("open");
+        await loadClippers();
+      } catch (err) {
+        errorBox.textContent = err.message || "Failed to save client.";
+        errorBox.style.display = "block";
+      }
+    });
+
+    // Edit Clipper modal — name/notes/client are staged and saved together;
+    // linked accounts add/remove immediately since they're independent API
+    // calls with their own success/failure (matching how they behaved before
+    // this was a single modal).
+    const editClipperOverlay = document.getElementById("editClipperOverlay");
+    function renderEditClipperAccounts(c) {
+      const accountsBox = document.getElementById("editClipperAccounts");
+      accountsBox.innerHTML = channelChipsHtml(c.id, c.channels, c.tiktok_accounts);
+    }
+    function openEditClipperModal(clipperId) {
+      activeClipperId = clipperId;
+      const c = clippers.find((cl) => cl.id === clipperId);
+      if (!c) return;
+      document.getElementById("editClipperName").value = c.name;
+      document.getElementById("editClipperNotes").value = c.notes || "";
+      const select = document.getElementById("editClipperClient");
+      select.innerHTML =
+        `<option value="">No Client</option>` +
+        clients.map((cl) => `<option value="${esc(cl.id)}">${esc(cl.name)}</option>`).join("");
+      const currentIds = [...clipperClientIds(c)];
+      select.value = currentIds.length === 1 ? currentIds[0] : "";
+      renderEditClipperAccounts(c);
+      document.getElementById("editClipperNewAccountInput").value = "";
+      document.getElementById("editClipperNewPlatform").value = "youtube";
+      document.getElementById("editClipperAccountError").style.display = "none";
+      document.getElementById("editClipperError").style.display = "none";
+      editClipperOverlay.classList.add("open");
+    }
+    async function refreshEditClipperModal() {
+      await loadClippers();
+      const c = clippers.find((cl) => cl.id === activeClipperId);
+      if (c) renderEditClipperAccounts(c);
+    }
+    document.getElementById("editClipperCancel").addEventListener("click", () => {
+      editClipperOverlay.classList.remove("open");
+    });
+    document.getElementById("editClipperSubmit").addEventListener("click", async () => {
+      const name = document.getElementById("editClipperName").value.trim();
+      const notes = document.getElementById("editClipperNotes").value.trim();
+      const clientId = document.getElementById("editClipperClient").value || null;
+      const errorBox = document.getElementById("editClipperError");
+      if (!name) {
+        errorBox.textContent = "Name is required.";
+        errorBox.style.display = "block";
+        return;
+      }
+      const c = clippers.find((cl) => cl.id === activeClipperId);
+      try {
+        await apiFetch(`/api/clippers/${activeClipperId}`, {
+          method: "PATCH",
+          body: JSON.stringify({ name, notes: notes || null }),
+        });
+        const channelIds = (c?.channels || []).map((ch) => ch.id);
+        const tiktokIds = (c?.tiktok_accounts || []).map((a) => a.id);
+        await Promise.all([
+          ...channelIds.map((id) =>
+            apiFetch(`/api/channels/${id}/client`, { method: "PATCH", body: JSON.stringify({ client_id: clientId }) })
+          ),
+          ...tiktokIds.map((id) =>
+            apiFetch(`/api/tiktok-accounts/${id}/client`, { method: "PATCH", body: JSON.stringify({ client_id: clientId }) })
+          ),
+        ]);
+        editClipperOverlay.classList.remove("open");
+        await loadClippers();
+      } catch (err) {
+        errorBox.textContent = err.message || "Failed to save changes.";
+        errorBox.style.display = "block";
+      }
+    });
+    document.getElementById("editClipperNewPlatform").addEventListener("change", (e) => {
+      document.getElementById("editClipperNewAccountInput").placeholder =
         e.target.value === "tiktok" ? "@handle or TikTok profile URL" : "@handle, channel URL, or channel ID";
     });
-    document.getElementById("addChannelCancel").addEventListener("click", () => {
-      addChannelOverlay.classList.remove("open");
-    });
-    document.getElementById("addChannelSubmit").addEventListener("click", async () => {
-      const input = document.getElementById("newChannelInput").value.trim();
-      const platform = document.getElementById("newChannelPlatform").value;
-      const errorBox = document.getElementById("addChannelError");
+    document.getElementById("editClipperAddAccountBtn").addEventListener("click", async () => {
+      const input = document.getElementById("editClipperNewAccountInput").value.trim();
+      const platform = document.getElementById("editClipperNewPlatform").value;
+      const errorBox = document.getElementById("editClipperAccountError");
       if (!input) {
         errorBox.textContent = "Enter a handle, URL, or ID.";
         errorBox.style.display = "block";
@@ -1081,63 +1187,28 @@
           body: JSON.stringify({ input }),
         });
         detailCache.delete(activeClipperId);
-        addChannelOverlay.classList.remove("open");
-        await loadClippers();
+        document.getElementById("editClipperNewAccountInput").value = "";
+        errorBox.style.display = "none";
+        await refreshEditClipperModal();
       } catch (err) {
         errorBox.textContent = err.message || "Failed to add account.";
         errorBox.style.display = "block";
       }
     });
-
-    // Set Client modal — links every account this clipper has linked to the
-    // chosen client, since `clients` only ever group clippers indirectly
-    // through the channels/accounts they own (see clipperClientIds above).
-    const setClientOverlay = document.getElementById("setClientOverlay");
-    function openSetClientModal(clipperId, name) {
-      activeClipperId = clipperId;
-      const c = clippers.find((cl) => cl.id === clipperId);
-      const select = document.getElementById("setClientSelect");
-      select.innerHTML =
-        `<option value="">No Client</option>` +
-        clients.map((cl) => `<option value="${esc(cl.id)}">${esc(cl.name)}</option>`).join("");
-      const currentIds = c ? [...clipperClientIds(c)] : [];
-      select.value = currentIds.length === 1 ? currentIds[0] : "";
-      document.getElementById("setClientSub").textContent =
-        currentIds.length > 1
-          ? `${name}'s accounts currently belong to more than one client — saving will move all of them to the client you pick below.`
-          : `Links ${name}'s linked accounts to a client so they're grouped together.`;
-      document.getElementById("setClientError").style.display = "none";
-      setClientOverlay.classList.add("open");
-    }
-    document.getElementById("setClientCancel").addEventListener("click", () => {
-      setClientOverlay.classList.remove("open");
-    });
-    document.getElementById("setClientSubmit").addEventListener("click", async () => {
-      const clientId = document.getElementById("setClientSelect").value || null;
-      const errorBox = document.getElementById("setClientError");
-      const c = clippers.find((cl) => cl.id === activeClipperId);
-      if (!c) return;
-      const channelIds = (c.channels || []).map((ch) => ch.id);
-      const tiktokIds = (c.tiktok_accounts || []).map((a) => a.id);
-      if (channelIds.length === 0 && tiktokIds.length === 0) {
-        errorBox.textContent = "This clipper has no linked accounts to assign yet — add one first via \"+ Account\".";
-        errorBox.style.display = "block";
-        return;
-      }
+    document.getElementById("editClipperAccounts").addEventListener("click", async (e) => {
+      const disconnectBtn = e.target.closest(".chip-disconnect-btn");
+      if (!disconnectBtn) return;
+      if (!confirm("Disconnect this account from the clipper? Its tracked clips will stay, just unlinked.")) return;
+      const platform = disconnectBtn.dataset.platform;
+      const path = platform === "tiktok" ? "tiktok-accounts" : "channels";
       try {
-        await Promise.all([
-          ...channelIds.map((id) =>
-            apiFetch(`/api/channels/${id}/client`, { method: "PATCH", body: JSON.stringify({ client_id: clientId }) })
-          ),
-          ...tiktokIds.map((id) =>
-            apiFetch(`/api/tiktok-accounts/${id}/client`, { method: "PATCH", body: JSON.stringify({ client_id: clientId }) })
-          ),
-        ]);
-        setClientOverlay.classList.remove("open");
-        await loadClippers();
+        await apiFetch(`/api/clippers/${disconnectBtn.dataset.clipperId}/${path}/${disconnectBtn.dataset.channelId}`, {
+          method: "DELETE",
+        });
+        detailCache.delete(activeClipperId);
+        await refreshEditClipperModal();
       } catch (err) {
-        errorBox.textContent = err.message || "Failed to assign client.";
-        errorBox.style.display = "block";
+        alert(`Failed to disconnect account: ${err.message}`);
       }
     });
 
@@ -1233,6 +1304,22 @@
         console.error("Failed to load rate:", err.message);
       }
     }
+
+    document.getElementById("refreshYoutubeBtn").addEventListener("click", async () => {
+      const btn = document.getElementById("refreshYoutubeBtn");
+      btn.disabled = true;
+      btn.textContent = "↻ Refreshing…";
+      try {
+        await apiFetch("/api/sync/refresh-youtube", { method: "POST" });
+        detailCache.clear();
+        await loadClippers();
+      } catch (err) {
+        alert(`Failed to refresh clips: ${err.message}`);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "↻ Refresh Clips";
+      }
+    });
 
     const editRateOverlay = document.getElementById("editRateOverlay");
     document.getElementById("editRateBtn").addEventListener("click", () => {
