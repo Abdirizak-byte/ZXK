@@ -1,8 +1,9 @@
 const pool = require("../db");
 const ytdlp = require("../lib/ytdlp");
+const { runWithConcurrency } = require("../lib/concurrencyPool");
 
-const BATCH_SIZE = 5;
-const DELAY_BETWEEN_VIDEOS_MS = 400;
+const BATCH_SIZE = 20;
+const BACKFILL_CONCURRENCY = 5;
 const IDLE_DELAY_MS = 60000;
 
 async function backfillBatch() {
@@ -12,7 +13,7 @@ async function backfillBatch() {
   );
   if (rows.length === 0) return false;
 
-  for (const short of rows) {
+  await runWithConcurrency(rows, BACKFILL_CONCURRENCY, async (short) => {
     try {
       const publishedAt = await ytdlp.fetchUploadDate(short.video_id);
       await pool.query("UPDATE shorts SET published_at = $1 WHERE id = $2", [publishedAt || new Date(0), short.id]);
@@ -20,8 +21,7 @@ async function backfillBatch() {
       console.error(`[date-backfill] giving up on video ${short.video_id}:`, err.message);
       await pool.query("UPDATE shorts SET published_at = $1 WHERE id = $2", [new Date(0), short.id]);
     }
-    await new Promise((r) => setTimeout(r, DELAY_BETWEEN_VIDEOS_MS));
-  }
+  });
   return true;
 }
 
