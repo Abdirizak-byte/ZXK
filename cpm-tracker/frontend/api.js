@@ -21,6 +21,18 @@ function formatDate(iso) {
   return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
 }
 
+// shorts.published_at is stored as UTC midnight of the real calendar day
+// (yt-dlp's upload_date has no time-of-day, just a date) — using local-time
+// getters here would roll the date back a day for any viewer west of UTC
+// (all of the Americas), which is what caused clip dates to mismatch the
+// date shown on YouTube itself. Use this instead of formatDate() for any
+// clip/video post date; keep formatDate() for real timestamps like paid_at.
+function formatPostDate(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return `${d.getUTCMonth() + 1}/${d.getUTCDate()}/${d.getUTCFullYear()}`;
+}
+
 function esc(value) {
   return String(value == null ? "" : value)
     .replace(/&/g, "&amp;")

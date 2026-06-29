@@ -322,7 +322,7 @@
           <img class="short-thumb" src="${esc(s.thumbnail_url || "")}" onerror="this.style.visibility='hidden'" />
           <div class="short-meta">
             <div class="short-title"><span class="platform-tag platform-tag-${esc(s.platform || "youtube")}">${platformLabel}</span> ${esc(s.title || "Untitled")}</div>
-            <div class="short-views">${Number(s.latest_views).toLocaleString()} views · ${s.published_at ? `posted ${formatDate(s.published_at)}` : "fetching post date…"}</div>
+            <div class="short-views">${Number(s.latest_views).toLocaleString()} views · ${s.published_at ? `posted ${formatPostDate(s.published_at)}` : "fetching post date…"}</div>
             ${sparklineSvg(s.view_history)}
             ${assignSelect}
           </div>
