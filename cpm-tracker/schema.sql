@@ -47,6 +47,10 @@ CREATE TABLE shorts (
   -- background and flips published_at_estimated back to false.
   published_at            TIMESTAMPTZ,
   published_at_estimated  BOOLEAN NOT NULL DEFAULT false,
+  -- Counts failed date-lookup attempts so a transient failure gets retried
+  -- a few times before giving up, instead of permanently mislabeling the
+  -- estimate as confirmed after a single bad attempt.
+  published_at_attempts   INT NOT NULL DEFAULT 0,
   last_checked_at         TIMESTAMPTZ,
   assigned_clipper_id     UUID REFERENCES clippers(id) ON DELETE SET NULL,
   created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW()
