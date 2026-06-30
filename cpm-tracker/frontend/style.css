@@ -416,6 +416,22 @@ tr.client-group-header-none td {
   padding: 5px 9px;
   font-size: 12px;
 }
+.bulk-assign-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  margin-top: 8px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+}
+.bulk-assign-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-right: 4px;
+}
 .shorts-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -429,6 +445,15 @@ tr.client-group-header-none td {
   padding: 10px;
   display: flex;
   gap: 10px;
+  align-items: flex-start;
+}
+.short-card-selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.short-select-checkbox {
+  margin-top: 4px;
+  flex-shrink: 0;
 }
 .short-thumb {
   width: 48px;

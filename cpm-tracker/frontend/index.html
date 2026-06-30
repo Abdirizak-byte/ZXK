@@ -268,6 +268,7 @@
     let clipSortDir = "desc";
     const collapsedClients = new Set();
     const selectedClipperIds = new Set();
+    const selectedShortIds = new Set();
 
     function sortShorts(shorts) {
       const copy = [...shorts];
@@ -317,8 +318,10 @@
                 .join("")}
             </select>`
           : "";
+      const selectable = eligible.length > 1;
       return `
-        <div class="short-card">
+        <div class="short-card${selectedShortIds.has(s.id) ? " short-card-selected" : ""}">
+          ${selectable ? `<input type="checkbox" class="short-select-checkbox" data-short-id="${esc(s.id)}" ${selectedShortIds.has(s.id) ? "checked" : ""} />` : ""}
           <img class="short-thumb" src="${esc(s.thumbnail_url || "")}" onerror="this.style.visibility='hidden'" />
           <div class="short-meta">
             <div class="short-title"><span class="platform-tag platform-tag-${esc(s.platform || "youtube")}">${platformLabel}</span> ${esc(s.title || "Untitled")}</div>
@@ -385,6 +388,29 @@
         </div>`;
     }
 
+    function bulkAssignBarHtml(detail) {
+      const selectedInView = detail.shorts.filter((s) => selectedShortIds.has(s.id));
+      if (selectedInView.length === 0) return "";
+
+      const eligibleById = new Map();
+      for (const s of selectedInView) {
+        const eligible = (detail.channel_clippers && detail.channel_clippers[s.channel_id]) || [];
+        for (const cl of eligible) eligibleById.set(cl.id, cl);
+      }
+      const options = [...eligibleById.values()].sort((a, b) => a.name.localeCompare(b.name));
+
+      return `
+        <div class="bulk-assign-bar">
+          <span class="bulk-assign-label">${selectedInView.length} clip${selectedInView.length === 1 ? "" : "s"} selected</span>
+          <select class="select-control select-sm" id="bulkAssignSelect">
+            <option value="">Shared (all editors)</option>
+            ${options.map((cl) => `<option value="${esc(cl.id)}">${esc(cl.name)}</option>`).join("")}
+          </select>
+          <button class="btn btn-sm btn-primary" id="bulkAssignBtn" type="button">Assign Selected</button>
+          <button class="btn btn-sm" id="bulkAssignClearBtn" type="button">Clear</button>
+        </div>`;
+    }
+
     function clipperDetailRowHtml(c) {
       const detail = detailCache.get(c.id);
       const periodActive = document.getElementById("periodFilter").value !== "all";
@@ -414,7 +440,7 @@
             </select>
             <button class="btn btn-sm clip-sort-dir" type="button">${clipSortDir === "desc" ? "High → Low" : "Low → High"}</button>
           </div>`;
-        shortsBody = `${pendingNote}${platformSummaryBarHtml(detail.shorts, detail.rate_views, detail.rate_cents)}${sortBar}<div class="shorts-grid">${sortShorts(detail.shorts).map((s) => shortCardHtml(s, detail.channel_clippers)).join("")}</div>`;
+        shortsBody = `${pendingNote}${platformSummaryBarHtml(detail.shorts, detail.rate_views, detail.rate_cents)}${sortBar}<div id="bulkAssignBarContainer">${bulkAssignBarHtml(detail)}</div><div class="shorts-grid">${sortShorts(detail.shorts).map((s) => shortCardHtml(s, detail.channel_clippers)).join("")}</div>`;
       }
       const payoutsBody = detail ? payoutsListHtml(detail.payouts, c.id, c.name) : "";
       return `<tr class="detail-row"><td colspan="8">${shortsBody}${payoutsBody}</td></tr>`;
@@ -795,6 +821,7 @@
     });
 
     async function toggleExpand(id) {
+      selectedShortIds.clear();
       if (expandedId === id) {
         expandedId = null;
         renderTable();
@@ -879,13 +906,47 @@
         renderTable();
         return;
       }
-      if (e.target.closest(".clipper-select-checkbox")) {
+      if (e.target.closest(".clipper-select-checkbox") || e.target.closest(".short-select-checkbox")) {
         e.stopPropagation();
+        return;
+      }
+      const bulkAssignBtn = e.target.closest("#bulkAssignBtn");
+      if (bulkAssignBtn) {
+        e.stopPropagation();
+        bulkAssignSelectedShorts();
+        return;
+      }
+      const bulkAssignClearBtn = e.target.closest("#bulkAssignClearBtn");
+      if (bulkAssignClearBtn) {
+        e.stopPropagation();
+        selectedShortIds.clear();
+        renderTable();
         return;
       }
       const row = e.target.closest(".clipper-row");
       if (row) toggleExpand(row.dataset.id);
     });
+
+    async function bulkAssignSelectedShorts() {
+      const select = document.getElementById("bulkAssignSelect");
+      const clipperId = select && select.value ? select.value : null;
+      const ids = [...selectedShortIds];
+      try {
+        await Promise.all(
+          ids.map((shortId) =>
+            apiFetch(`/api/shorts/${shortId}/assign`, {
+              method: "PATCH",
+              body: JSON.stringify({ clipper_id: clipperId }),
+            })
+          )
+        );
+        selectedShortIds.clear();
+        detailCache.clear();
+        await loadClippers();
+      } catch (err) {
+        alert(`Failed to assign clips: ${err.message}`);
+      }
+    }
 
     function updateBulkBar() {
       const bar = document.getElementById("bulkActionsBar");
@@ -915,6 +976,16 @@
       if (sortKeySelect) {
         clipSortKey = sortKeySelect.value;
         renderTable();
+        return;
+      }
+      const shortCheckbox = e.target.closest(".short-select-checkbox");
+      if (shortCheckbox) {
+        if (shortCheckbox.checked) selectedShortIds.add(shortCheckbox.dataset.shortId);
+        else selectedShortIds.delete(shortCheckbox.dataset.shortId);
+        shortCheckbox.closest(".short-card").classList.toggle("short-card-selected", shortCheckbox.checked);
+        const detail = detailCache.get(expandedId);
+        const barContainer = document.getElementById("bulkAssignBarContainer");
+        if (detail && barContainer) barContainer.innerHTML = bulkAssignBarHtml(detail);
         return;
       }
       const select = e.target.closest(".assign-select");
